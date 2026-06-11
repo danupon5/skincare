@@ -575,9 +575,19 @@
             if(!builderFilesBase64.length) return alert("Upload images first.");
             document.getElementById("builder-loading").classList.remove("hidden");
             document.getElementById("builder-result").classList.add("hidden");
+const prompt = `วิเคราะห์ผลิตภัณฑ์สกินแคร์ในรูปภาพและจัดเรียงลำดับการใช้ โดยใช้ "กฎเหล็กการทาสกินแคร์" ดังต่อไปนี้:
+1. ผลิตภัณฑ์ทำความสะอาด (Cleanser/Remover) ต้องอยู่ลำดับแรกสุดเสมอ
+2. โทนเนอร์ และ น้ำตบ (Essence)
+3. เซรั่ม หรือ ทรีตเมนต์ (หากมีหลายตัว ให้เรียงตามเนื้อสัมผัส เบาบางสุดไปข้นสุด)
+4. ครีมบำรุงรอบดวงตา (Eye Cream)
+5. มอยส์เจอไรเซอร์ หรือ ครีมบำรุงผิวหน้า
+6. **กฎเหล็กที่สำคัญที่สุด**: ครีมกันแดด (Sunscreen/SPF) ต้องอยู่ "ลำดับสุดท้ายเสมอ" สำหรับการทาช่วงเช้า (AM) ไม่ว่าเนื้อสัมผัสของกันแดดนั้นจะเหลวแค่ไหนก็ตาม ห้ามทากันแดดก่อนครีมบำรุงเด็ดขาด
 
-            const prompt = `Identify skincare products in images. Sort by texture (thinnest to thickest). Output strict JSON array ONLY: { "steps": [ {"name":"..", "texture":"..", "benefit":"..", "reason":"..", "time":"AM|PM|Both"} ] }`;
-            try {
+กรุณาตอบรายละเอียดเป็น "ภาษาไทย" ทั้งหมด (ยกเว้นชื่อแบรนด์หรือสารสกัดภาษาอังกฤษ) 
+และส่งคืนเป็น JSON Array รูปแบบนี้เท่านั้น ห้ามพิมพ์ข้อความอื่นนอกเหนือจากนี้: 
+{ "steps": [ {"name":"ชื่อสินค้า", "texture":"เนื้อสัมผัส", "benefit":"สรรพคุณ", "reason":"เหตุผลที่จัดไว้ลำดับนี้ (เช่น เป็นกันแดดจึงต้องทาเป็นขั้นตอนสุดท้ายเพื่อปกป้องผิว)", "time":"AM|PM|Both"} ] }`;
+			
+			try {
                 const res = await callGemini(prompt, builderFilesBase64, false);
                 const data = getJson(res).steps;
                 lastBuilderData = data;
