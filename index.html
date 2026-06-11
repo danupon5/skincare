@@ -578,7 +578,7 @@
 
             const prompt = `Identify skincare products in images. Sort by texture (thinnest to thickest). Output strict JSON array ONLY: { "steps": [ {"name":"..", "texture":"..", "benefit":"..", "reason":"..", "time":"AM|PM|Both"} ] }`;
             try {
-                const res = await callGemini(prompt, builderFilesBase64, true);
+                const res = await callGemini(prompt, builderFilesBase64, false);
                 const data = getJson(res).steps;
                 lastBuilderData = data;
                 
