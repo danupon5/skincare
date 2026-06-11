@@ -1,0 +1,909 @@
+html_content = """<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skincare AI Assistant v2</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2pdf.js for High-fidelity PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Plus Jakarta Sans', 'Sarabun', sans-serif;
+            background-color: #0f172a; /* slate-900 */
+            color: #e2e8f0; /* slate-200 */
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Custom Scrollbar for dark mode */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        
+        /* Toast Notification */
+        .toast {
+            position: fixed; top: 20px; right: 20px; z-index: 1000;
+            transform: translateX(120%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .toast.show { transform: translateX(0); }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col overflow-x-hidden">
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="toast bg-emerald-600 text-white px-6 py-4 rounded-xl shadow-lg border border-emerald-500 flex items-center gap-3">
+        <i class="fa-solid fa-bell text-xl animate-bounce"></i>
+        <div>
+            <h4 id="toast-title" class="font-bold text-sm">แจ้งเตือน Routine!</h4>
+            <p id="toast-msg" class="text-xs text-emerald-100">ได้เวลาดูแลผิวของคุณแล้ว</p>
+        </div>
+        <button onclick="closeToast()" class="ml-4 text-emerald-200 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <!-- Header Section -->
+    <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-40 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2.5 bg-emerald-500 text-slate-900 rounded-xl shadow-lg shadow-emerald-500/20">
+                        <i class="fa-solid fa-sparkles text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-white tracking-tight">Skincare AI Assistant <span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full ml-1">v2</span></h1>
+                        <p class="text-xs text-slate-400">Personalized Routine & Analysis by Gemini</p>
+                    </div>
+                </div>
+
+                <!-- API Controls -->
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-slate-900/50 p-2 rounded-xl border border-slate-700">
+                    <div class="flex items-center space-x-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-600">
+                        <i class="fa-solid fa-layer-group text-slate-400 text-sm"></i>
+                        <select id="global-model-select" class="text-sm bg-transparent border-none font-medium focus:outline-hidden text-slate-200 cursor-pointer">
+                            <option value="gemini-3.5-flash">Gemini 3.5 Flash ⭐</option>
+                            <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro</option>
+                            <option value="gemini-3.1-flash">Gemini 3.1 Flash</option>
+                            <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite</option>
+                            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                        </select>
+                    </div>
+                    <div class="relative flex items-center">
+                        <span class="absolute left-3 text-slate-400 text-xs"><i class="fa-solid fa-key"></i></span>
+                        <input type="password" id="global-api-key" placeholder="Gemini API Key..." 
+                            class="w-full sm:w-64 pl-8 pr-10 py-1.5 text-sm bg-slate-800 text-white border border-slate-600 rounded-lg focus:outline-hidden focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono placeholder-slate-500" />
+                        <button onclick="toggleApiKeyVisibility()" class="absolute right-3 text-slate-400 hover:text-slate-200 cursor-pointer">
+                            <i id="eye-icon" class="fa-solid fa-eye text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Bar -->
+    <nav class="bg-slate-800 border-b border-slate-700 sticky top-[73px] md:top-[81px] z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex space-x-1 overflow-x-auto no-scrollbar py-2">
+                <button onclick="switchTab('profile-tab')" id="btn-profile-tab" class="tab-btn active flex items-center space-x-2 px-4 py-2 text-sm font-semibold rounded-lg text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 transition-all whitespace-nowrap cursor-pointer">
+                    <i class="fa-solid fa-user-gear"></i> <span>My Profile</span>
+                </button>
+                <button onclick="switchTab('builder-tab')" id="btn-builder-tab" class="tab-btn flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-700 border border-transparent transition-all whitespace-nowrap cursor-pointer">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> <span>Routine Builder</span>
+                </button>
+                <button onclick="switchTab('scanner-tab')" id="btn-scanner-tab" class="tab-btn flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-700 border border-transparent transition-all whitespace-nowrap cursor-pointer">
+                    <i class="fa-solid fa-magnifying-glass-location"></i> <span>Product Scanner</span>
+                </button>
+                <button onclick="switchTab('suggestions-tab')" id="btn-suggestions-tab" class="tab-btn flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-700 border border-transparent transition-all whitespace-nowrap cursor-pointer">
+                    <i class="fa-solid fa-lightbulb"></i> <span>AI Suggestions</span>
+                </button>
+                <button onclick="switchTab('export-tab')" id="btn-export-tab" class="tab-btn flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-700 border border-transparent transition-all whitespace-nowrap cursor-pointer">
+                    <i class="fa-solid fa-calendar-check"></i> <span>Export & Reminders</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        
+        <!-- ==================== TAB 1: MY PROFILE ==================== -->
+        <div id="profile-tab" class="tab-content active space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Skin Profile -->
+                <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-md flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center space-x-2 text-emerald-400 font-bold mb-3 text-sm uppercase tracking-wide">
+                            <i class="fa-solid fa-id-card"></i> <span>Skin Profile</span>
+                        </div>
+                        <div id="display-skin-profile" class="text-slate-300 bg-slate-900/50 p-3 rounded-xl border border-slate-700 text-sm min-h-[60px] whitespace-pre-wrap">ไม่ได้ระบุสภาพผิว</div>
+                        <textarea id="edit-skin-profile" class="hidden w-full p-3 bg-slate-900 border border-slate-600 text-white rounded-xl text-sm focus:outline-hidden focus:border-emerald-500 min-h-[60px]" placeholder="เช่น ผิวแห้ง, ผิวมัน, ผิวผสม, แพ้ง่าย"></textarea>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-700 flex justify-end">
+                        <button id="btn-edit-skin-profile" onclick="toggleEdit('skin-profile')" class="text-xs bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-md transition-colors cursor-pointer"><i class="fa-solid fa-pen mr-1"></i> Edit</button>
+                        <button id="btn-save-skin-profile" onclick="saveData('skin-profile')" class="hidden text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-md transition-colors cursor-pointer"><i class="fa-solid fa-save mr-1"></i> Save</button>
+                    </div>
+                </div>
+
+                <!-- Skin Goals -->
+                <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-md flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center space-x-2 text-emerald-400 font-bold mb-3 text-sm uppercase tracking-wide">
+                            <i class="fa-solid fa-bullseye"></i> <span>Skin Goals</span>
+                        </div>
+                        <div id="display-skin-goals" class="text-slate-300 bg-slate-900/50 p-3 rounded-xl border border-slate-700 text-sm min-h-[60px] whitespace-pre-wrap">ไม่ได้ระบุเป้าหมาย</div>
+                        <textarea id="edit-skin-goals" class="hidden w-full p-3 bg-slate-900 border border-slate-600 text-white rounded-xl text-sm focus:outline-hidden focus:border-emerald-500 min-h-[60px]" placeholder="เช่น ลดสิว, หน้าใส, ลด dark spot"></textarea>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-700 flex justify-end">
+                        <button id="btn-edit-skin-goals" onclick="toggleEdit('skin-goals')" class="text-xs bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-md transition-colors cursor-pointer"><i class="fa-solid fa-pen mr-1"></i> Edit</button>
+                        <button id="btn-save-skin-goals" onclick="saveData('skin-goals')" class="hidden text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-md transition-colors cursor-pointer"><i class="fa-solid fa-save mr-1"></i> Save</button>
+                    </div>
+                </div>
+
+                <!-- Blacklist -->
+                <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-md flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center space-x-2 text-rose-400 font-bold mb-3 text-sm uppercase tracking-wide">
+                            <i class="fa-solid fa-ban"></i> <span>Ingredient Blacklist</span>
+                        </div>
+                        <div id="blacklist-tags-container" class="flex flex-wrap gap-1.5 mb-3 min-h-[40px]"></div>
+                        <div class="flex gap-2">
+                            <input type="text" id="blacklist-input" placeholder="เช่น Alcohol, Fragrance" class="w-full px-3 py-1.5 text-xs bg-slate-900 border border-slate-600 text-white rounded-lg focus:outline-hidden focus:border-rose-500">
+                            <button onclick="addBlacklistTag()" class="bg-rose-600 hover:bg-rose-500 text-white px-3 py-1.5 rounded-lg cursor-pointer"><i class="fa-solid fa-plus"></i></button>
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-2"><i class="fa-solid fa-circle-info"></i> AI จะขึ้น ⚠️ เตือนทันทีเมื่อสแกนเจอสารเหล่านี้</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Routine Display -->
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-md overflow-hidden">
+                <div class="border-b border-slate-700 bg-slate-800/50 px-6 py-4 flex justify-between items-center">
+                    <h2 class="text-base font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-calendar-lines text-emerald-400"></i> My Routine
+                    </h2>
+                    <div>
+                        <button id="btn-edit-routine" onclick="toggleRoutineEdit(true)" class="text-xs bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-lg cursor-pointer transition-colors"><i class="fa-solid fa-pen mr-1"></i> Edit Routine</button>
+                        <button id="btn-save-routine" onclick="saveRoutineData()" class="hidden text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg cursor-pointer transition-colors"><i class="fa-solid fa-save mr-1"></i> Save Routine</button>
+                    </div>
+                </div>
+                <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="border border-amber-500/20 bg-amber-500/5 rounded-xl p-5">
+                        <div class="flex items-center space-x-2 text-amber-400 font-bold mb-4 border-b border-amber-500/20 pb-2">
+                            <i class="fa-solid fa-sun"></i> <span>AM Routine</span>
+                        </div>
+                        <div id="am-routine-display" class="space-y-2"></div>
+                        <textarea id="am-routine-edit" class="hidden w-full h-48 p-3 font-mono text-xs bg-slate-900 border border-slate-600 text-white rounded-xl focus:border-amber-500 focus:outline-hidden" placeholder="Step 1: Cleanser&#10;Step 2: Sunscreen"></textarea>
+                    </div>
+                    <div class="border border-indigo-500/20 bg-indigo-500/5 rounded-xl p-5">
+                        <div class="flex items-center space-x-2 text-indigo-400 font-bold mb-4 border-b border-indigo-500/20 pb-2">
+                            <i class="fa-solid fa-moon"></i> <span>PM Routine</span>
+                        </div>
+                        <div id="pm-routine-display" class="space-y-2"></div>
+                        <textarea id="pm-routine-edit" class="hidden w-full h-48 p-3 font-mono text-xs bg-slate-900 border border-slate-600 text-white rounded-xl focus:border-indigo-500 focus:outline-hidden" placeholder="Step 1: Cleansing Balm&#10;Step 2: Moisturizer"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB 2: ROUTINE BUILDER ==================== -->
+        <div id="builder-tab" class="tab-content space-y-6">
+            <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-md">
+                <div class="max-w-xl">
+                    <h2 class="text-lg font-bold text-white mb-2"><i class="fa-solid fa-images text-emerald-400 mr-2"></i>สร้าง Routine จากรูปภาพ (Texture-based)</h2>
+                    <p class="text-xs text-slate-400 mb-4">อัปโหลดภาพผลิตภัณฑ์ของคุณ AI จะจัดเรียงลำดับการใช้ตามความหนืด (บางเบา → เข้มข้น) พร้อมแนะนำช่วงเวลาการใช้</p>
+                    
+                    <div class="border-2 border-dashed border-slate-600 hover:border-emerald-500 rounded-xl p-6 text-center bg-slate-900/50 transition-all cursor-pointer relative" id="dropzone-builder">
+                        <input type="file" id="builder-file" multiple accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer" onchange="handleBuilderFiles(this.files)">
+                        <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-500 mb-2"></i>
+                        <p class="text-sm font-semibold text-slate-300">คลิก หรือ ลากรูปภาพสกินแคร์มาวางที่นี่</p>
+                        <p class="text-xs text-slate-500 mt-1">อัปโหลดได้หลายรูปพร้อมกัน</p>
+                    </div>
+                    <div id="builder-preview" class="grid grid-cols-5 sm:grid-cols-8 gap-2 mt-4"></div>
+                    <button onclick="generateRoutine()" class="mt-4 w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded-xl transition-all cursor-pointer text-sm flex justify-center items-center gap-2">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> สร้าง Routine ด้วย AI
+                    </button>
+                </div>
+            </div>
+
+            <div id="builder-loading" class="hidden bg-slate-800 border border-slate-700 p-8 rounded-2xl shadow-md text-center">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-emerald-500 border-t-transparent mb-3"></div>
+                <p class="text-sm text-slate-300">AI กำลังวิเคราะห์เนื้อสัมผัสและสรรพคุณ (Web Search Active)...</p>
+            </div>
+
+            <div id="builder-result" class="hidden bg-slate-800 border border-slate-700 rounded-2xl shadow-md overflow-hidden">
+                <div class="bg-slate-700/50 border-b border-slate-700 px-6 py-4 flex justify-between items-center">
+                    <span class="text-sm font-bold text-white"><i class="fa-solid fa-list-ol text-emerald-400 mr-2"></i>AI Suggested Routine Sequence</span>
+                    <button onclick="applyRoutineToProfile()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-lg cursor-pointer">
+                        <i class="fa-solid fa-download mr-1"></i> Save to My Routine
+                    </button>
+                </div>
+                <div class="p-6">
+                    <div id="builder-steps" class="space-y-4"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB 3: PRODUCT SCANNER ==================== -->
+        <div id="scanner-tab" class="tab-content space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Control Panel (Upload & History) -->
+                <div class="lg:col-span-4 space-y-4">
+                    <div class="bg-slate-800 border border-slate-700 p-5 rounded-2xl shadow-md">
+                        <h2 class="text-base font-bold text-white mb-2"><i class="fa-solid fa-barcode text-emerald-400 mr-2"></i>Product Scanner</h2>
+                        <p class="text-xs text-slate-400 mb-4">ตรวจสอบส่วนผสม ความเข้ากันได้กับโปรไฟล์ผิว และราคากลาง</p>
+                        
+                        <div class="mb-4 flex items-center justify-between p-2.5 bg-slate-900 rounded-lg border border-slate-700">
+                            <label class="text-xs font-bold text-slate-300 cursor-pointer flex items-center gap-2">
+                                <i class="fa-solid fa-code-compare text-amber-400"></i> Compare Mode
+                            </label>
+                            <input type="checkbox" id="compare-toggle" onchange="toggleCompareMode()" class="w-4 h-4 accent-emerald-500 cursor-pointer">
+                        </div>
+
+                        <div class="space-y-3">
+                            <div class="border-2 border-dashed border-slate-600 rounded-xl p-4 text-center bg-slate-900/50 relative">
+                                <input type="file" id="scan-file-1" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer" onchange="handleScanFile(1)">
+                                <p class="text-xs font-semibold text-slate-300" id="scan-txt-1">รูปสินค้าหลัก</p>
+                                <img id="scan-img-1" class="hidden mt-2 max-h-24 mx-auto rounded-md object-contain">
+                            </div>
+                            <div id="scan-zone-2" class="hidden border-2 border-dashed border-slate-600 rounded-xl p-4 text-center bg-slate-900/50 relative">
+                                <input type="file" id="scan-file-2" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer" onchange="handleScanFile(2)">
+                                <p class="text-xs font-semibold text-slate-300" id="scan-txt-2">รูปสินค้าที่ 2 (เปรียบเทียบ)</p>
+                                <img id="scan-img-2" class="hidden mt-2 max-h-24 mx-auto rounded-md object-contain">
+                            </div>
+                        </div>
+
+                        <button onclick="runScanner()" class="mt-4 w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 rounded-xl cursor-pointer text-sm">
+                            <i class="fa-solid fa-magnifying-glass mr-1"></i> Scan Product
+                        </button>
+                    </div>
+
+                    <div class="bg-slate-800 border border-slate-700 p-5 rounded-2xl shadow-md flex flex-col max-h-[400px]">
+                        <div class="flex items-center justify-between border-b border-slate-700 pb-2 mb-3">
+                            <span class="text-xs font-bold text-slate-300 uppercase">Scan History</span>
+                            <button onclick="clearScanHistory()" class="text-[10px] text-rose-400 hover:text-rose-300 cursor-pointer"><i class="fa-solid fa-trash"></i> Clear</button>
+                        </div>
+                        <div id="scan-history-list" class="space-y-2 overflow-y-auto flex-grow custom-scrollbar pr-1"></div>
+                    </div>
+                </div>
+
+                <!-- Analysis & Chat View -->
+                <div class="lg:col-span-8 space-y-4">
+                    <div id="scanner-loading" class="hidden bg-slate-800 border border-slate-700 p-12 rounded-2xl shadow-md text-center">
+                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-emerald-500 border-t-transparent mb-3"></div>
+                        <p class="text-sm text-slate-300">กำลังวิเคราะห์ส่วนผสม Cross-check ข้อมูลผิว และค้นหาราคา...</p>
+                    </div>
+
+                    <div id="scanner-report" class="hidden flex flex-col bg-slate-800 border border-slate-700 rounded-2xl shadow-md overflow-hidden min-h-[500px]">
+                        <!-- Report Data -->
+                        <div class="bg-slate-700/30 border-b border-slate-700 px-5 py-3">
+                            <h3 class="text-sm font-bold text-white"><i class="fa-solid fa-clipboard-check text-emerald-400 mr-2"></i>Analysis Report</h3>
+                        </div>
+                        <div id="scanner-content" class="p-5 overflow-y-auto max-h-[400px] border-b border-slate-700 custom-scrollbar text-sm"></div>
+                        
+                        <!-- Contextual Chat -->
+                        <div class="flex-grow flex flex-col bg-slate-900/50">
+                            <div class="px-5 py-2 border-b border-slate-700 bg-slate-800/80 text-xs font-bold text-slate-400 flex items-center gap-2">
+                                <i class="fa-solid fa-comments text-emerald-400"></i> AI Chat Assistant (ถามเพิ่มเติมเกี่ยวกับสินค้านี้)
+                            </div>
+                            <div id="chat-messages" class="flex-grow p-4 overflow-y-auto max-h-[300px] space-y-3 custom-scrollbar text-sm">
+                                <div class="text-center text-xs text-slate-500 my-4">คุณสามารถถามเจาะลึกเกี่ยวกับสินค้านี้ หรือวิธีใช้ร่วมกับ Routine ของคุณได้เลย</div>
+                            </div>
+                            <div class="p-4 bg-slate-800 border-t border-slate-700 flex gap-2">
+                                <input type="text" id="chat-input" placeholder="พิมพ์คำถามที่นี่... เช่น ทาหลัง Retinol ได้ไหม?" class="flex-grow bg-slate-900 border border-slate-600 text-white text-sm rounded-lg px-4 py-2 focus:outline-hidden focus:border-emerald-500" onkeypress="if(event.key==='Enter') sendChat()">
+                                <button onclick="sendChat()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg cursor-pointer"><i class="fa-solid fa-paper-plane"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB 4: AI SUGGESTIONS ==================== -->
+        <div id="suggestions-tab" class="tab-content space-y-6">
+            <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-md">
+                <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2"><i class="fa-solid fa-lightbulb text-amber-400"></i> AI Routine Suggestions</h2>
+                        <p class="text-xs text-slate-400 mt-1">วิเคราะห์จุดอ่อนของรูทีนปัจจุบัน พร้อมแนะนำผลิตภัณฑ์และเทคนิคการใช้</p>
+                    </div>
+                    <button onclick="generateSuggestions()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-5 rounded-xl text-sm cursor-pointer whitespace-nowrap flex items-center gap-2">
+                        <i class="fa-solid fa-arrows-rotate"></i> Analyze My Routine
+                    </button>
+                </div>
+            </div>
+
+            <div id="sugg-loading" class="hidden bg-slate-800 border border-slate-700 p-12 rounded-2xl shadow-md text-center">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-amber-500 border-t-transparent mb-3"></div>
+                <p class="text-sm text-slate-300">AI กำลังวิเคราะห์ Gap ใน Routine และค้นหาผลิตภัณฑ์แนะนำ...</p>
+            </div>
+
+            <div id="sugg-result" class="hidden space-y-6">
+                <!-- Gap Analysis -->
+                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-md">
+                    <h3 class="text-md font-bold text-rose-400 mb-4 border-b border-slate-700 pb-2"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Routine Gap Analysis (จุดที่ขาดหายไป)</h3>
+                    <ul id="sugg-gaps" class="list-disc list-inside text-sm text-slate-300 space-y-2"></ul>
+                </div>
+                
+                <!-- Synergy Tips -->
+                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-md">
+                    <h3 class="text-md font-bold text-emerald-400 mb-4 border-b border-slate-700 pb-2"><i class="fa-solid fa-flask mr-2"></i>Ingredient Synergy Tips</h3>
+                    <ul id="sugg-tips" class="list-disc list-inside text-sm text-slate-300 space-y-2"></ul>
+                </div>
+
+                <!-- Product Recommendations -->
+                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-md">
+                    <h3 class="text-md font-bold text-amber-400 mb-4 border-b border-slate-700 pb-2"><i class="fa-solid fa-star mr-2"></i>Product Recommendations</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="sugg-products">
+                        <!-- Rendered via JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB 5: EXPORT & REMINDER ==================== -->
+        <div id="export-tab" class="tab-content space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Export Module -->
+                <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-md">
+                    <h2 class="text-lg font-bold text-white mb-2"><i class="fa-solid fa-file-pdf text-emerald-400 mr-2"></i>Export Routine (PDF)</h2>
+                    <p class="text-xs text-slate-400 mb-6">บันทึกตารางดูแลผิวของคุณเป็นไฟล์ PDF เพื่อพิมพ์แปะกระจกห้องน้ำ (เอกสารจะถูกจัดรูปแบบให้อ่านง่ายพื้นหลังสีสว่าง)</p>
+                    <button onclick="exportRoutineToPDF()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 rounded-xl text-sm cursor-pointer flex justify-center items-center gap-2">
+                        <i class="fa-solid fa-download"></i> Download PDF
+                    </button>
+                </div>
+
+                <!-- Reminder Module -->
+                <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-md">
+                    <h2 class="text-lg font-bold text-white mb-2"><i class="fa-solid fa-bell text-amber-400 mr-2"></i>In-Page Routine Reminder</h2>
+                    <p class="text-xs text-slate-400 mb-4">ตั้งเวลาแจ้งเตือนให้ทำสกินแคร์รูทีน (ทำงานเมื่อคุณเปิดแท็บแอปนี้ทิ้งไว้)</p>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-300 mb-1">AM Routine Time (เช้า)</label>
+                            <input type="time" id="time-am" class="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:border-emerald-500" onchange="saveReminders()">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-300 mb-1">PM Routine Time (เย็น)</label>
+                            <input type="time" id="time-pm" class="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:border-emerald-500" onchange="saveReminders()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PDF Render Canvas (Hidden, Light Theme specifically for Printing) -->
+            <div class="hidden">
+                <div id="pdf-canvas" class="p-8 bg-white text-slate-900" style="width: 210mm; min-height: 297mm; font-family: 'Sarabun', sans-serif;">
+                    <div style="border-bottom: 3px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px;">
+                        <h1 style="font-size: 28px; font-weight: 800; margin: 0; color: #0f172a;">Skincare Routine Protocol</h1>
+                        <p style="font-size: 12px; color: #475569; margin: 5px 0 0 0;">AI Generated Personalized Regimen</p>
+                    </div>
+
+                    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 15px; margin-bottom: 25px; font-size: 12px; line-height: 1.6;">
+                        <div style="color: #0f172a;"><strong><span style="color:#047857;">Skin Profile:</span></strong> <span id="pdf-profile">-</span></div>
+                        <div style="color: #0f172a;"><strong><span style="color:#047857;">Goals:</span></strong> <span id="pdf-goals">-</span></div>
+                        <div style="color: #0f172a;"><strong><span style="color:#be123c;">Blacklist:</span></strong> <span id="pdf-blacklist">-</span></div>
+                    </div>
+
+                    <div style="display: flex; gap: 4%;">
+                        <div style="width: 48%; background: #fdf6e3; border: 1px solid #fde68a; border-radius: 8px; padding: 15px;">
+                            <h3 style="color: #b45309; font-size: 16px; margin-top:0; border-bottom: 1px solid #fde68a; padding-bottom: 8px;">☀️ AM Regimen</h3>
+                            <div id="pdf-am" style="font-size: 12px; margin-top: 10px;" class="space-y-3 text-slate-800"></div>
+                        </div>
+                        <div style="width: 48%; background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 8px; padding: 15px;">
+                            <h3 style="color: #4338ca; font-size: 16px; margin-top:0; border-bottom: 1px solid #ddd6fe; padding-bottom: 8px;">🌙 PM Regimen</h3>
+                            <div id="pdf-pm" style="font-size: 12px; margin-top: 10px;" class="space-y-3 text-slate-800"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- CORE LOGIC -->
+    <script>
+        // --- State Management ---
+        let state = {
+            profile: { skinProfile: "", skinGoals: "", blacklist: [] },
+            amRoutine: [],
+            pmRoutine: [],
+            scanHistory: [],
+            reminders: { am: "", pm: "" }
+        };
+
+        let currentActiveHistoryIndex = -1; // -1 means new scan, >=0 means viewing history item
+
+        // Buffers
+        let builderFilesBase64 = [];
+        let scanFile1Base64 = null;
+        let scanFile2Base64 = null;
+
+        // --- Initialization ---
+        document.addEventListener("DOMContentLoaded", () => {
+            loadLocal();
+            renderProfile();
+            renderRoutine();
+            renderHistory();
+            initReminders();
+        });
+
+        function loadLocal() {
+            try {
+                const p = localStorage.getItem("sk2_profile"); if(p) state.profile = JSON.parse(p);
+                const am = localStorage.getItem("sk2_am"); if(am) state.amRoutine = JSON.parse(am);
+                const pm = localStorage.getItem("sk2_pm"); if(pm) state.pmRoutine = JSON.parse(pm);
+                const sh = localStorage.getItem("sk2_history"); if(sh) state.scanHistory = JSON.parse(sh);
+                const rm = localStorage.getItem("sk2_reminders"); if(rm) state.reminders = JSON.parse(rm);
+                
+                const k = localStorage.getItem("sk2_key"); if(k) document.getElementById("global-api-key").value = k;
+                const m = localStorage.getItem("sk2_model"); if(m) document.getElementById("global-model-select").value = m;
+
+                document.getElementById("time-am").value = state.reminders.am;
+                document.getElementById("time-pm").value = state.reminders.pm;
+            } catch(e) { console.error(e); }
+        }
+
+        function saveLocal() {
+            localStorage.setItem("sk2_profile", JSON.stringify(state.profile));
+            localStorage.setItem("sk2_am", JSON.stringify(state.amRoutine));
+            localStorage.setItem("sk2_pm", JSON.stringify(state.pmRoutine));
+            localStorage.setItem("sk2_history", JSON.stringify(state.scanHistory));
+            localStorage.setItem("sk2_reminders", JSON.stringify(state.reminders));
+            localStorage.setItem("sk2_key", document.getElementById("global-api-key").value.trim());
+            localStorage.setItem("sk2_model", document.getElementById("global-model-select").value);
+        }
+
+        // --- UI Utils ---
+        function switchTab(id) {
+            document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
+            document.querySelectorAll(".tab-btn").forEach(btn => {
+                btn.classList.remove("text-emerald-400", "bg-emerald-500/10", "border-emerald-500/20", "active");
+                btn.classList.add("text-slate-400", "border-transparent");
+            });
+            document.getElementById(id).classList.add("active");
+            const btn = document.getElementById(`btn-${id}`);
+            if(btn) {
+                btn.classList.remove("text-slate-400", "border-transparent");
+                btn.classList.add("text-emerald-400", "bg-emerald-500/10", "border-emerald-500/20", "active");
+            }
+        }
+
+        function toggleApiKeyVisibility() {
+            const el = document.getElementById("global-api-key");
+            const ic = document.getElementById("eye-icon");
+            if(el.type === "password") { el.type = "text"; ic.classList.replace("fa-eye", "fa-eye-slash"); }
+            else { el.type = "password"; ic.classList.replace("fa-eye-slash", "fa-eye"); }
+        }
+
+        // --- Tab 1: Profile & Routine Logic ---
+        function renderProfile() {
+            document.getElementById("display-skin-profile").textContent = state.profile.skinProfile || "ไม่ได้ระบุสภาพผิว";
+            document.getElementById("edit-skin-profile").value = state.profile.skinProfile;
+            document.getElementById("display-skin-goals").textContent = state.profile.skinGoals || "ไม่ได้ระบุเป้าหมาย";
+            document.getElementById("edit-skin-goals").value = state.profile.skinGoals;
+
+            const box = document.getElementById("blacklist-tags-container");
+            box.innerHTML = state.profile.blacklist.length ? "" : `<span class="text-slate-500 italic text-xs">ไม่มีบัญชีดำ</span>`;
+            state.profile.blacklist.forEach((tag, i) => {
+                box.innerHTML += `<span class="inline-flex items-center px-2 py-1 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs">
+                    ${tag} <button onclick="removeBl(${i})" class="ml-1 hover:text-white"><i class="fa-solid fa-xmark text-[10px]"></i></button></span>`;
+            });
+        }
+
+        function toggleEdit(id) {
+            document.getElementById(`display-${id}`).classList.add("hidden");
+            document.getElementById(`edit-${id}`).classList.remove("hidden");
+            document.getElementById(`btn-edit-${id}`).classList.add("hidden");
+            document.getElementById(`btn-save-${id}`).classList.remove("hidden");
+        }
+
+        function saveData(id) {
+            const v = document.getElementById(`edit-${id}`).value.trim();
+            if(id === "skin-profile") state.profile.skinProfile = v;
+            if(id === "skin-goals") state.profile.skinGoals = v;
+            saveLocal(); renderProfile();
+            document.getElementById(`display-${id}`).classList.remove("hidden");
+            document.getElementById(`edit-${id}`).classList.add("hidden");
+            document.getElementById(`btn-edit-${id}`).classList.remove("hidden");
+            document.getElementById(`btn-save-${id}`).classList.add("hidden");
+        }
+
+        function addBlacklistTag() {
+            const i = document.getElementById("blacklist-input");
+            const v = i.value.trim();
+            if(v && !state.profile.blacklist.includes(v)) {
+                state.profile.blacklist.push(v); saveLocal(); renderProfile(); i.value = "";
+            }
+        }
+        function removeBl(idx) { state.profile.blacklist.splice(idx, 1); saveLocal(); renderProfile(); }
+
+        function renderRoutine() {
+            const am = document.getElementById("am-routine-display");
+            const pm = document.getElementById("pm-routine-display");
+            
+            const html = (arr) => arr.length ? arr.map((item, i) => `
+                <div class="bg-slate-900/50 p-3 rounded-lg border border-slate-700 flex gap-3 text-xs">
+                    <div class="bg-slate-700 text-white rounded w-5 h-5 flex items-center justify-center shrink-0 font-bold">${i+1}</div>
+                    <div><div class="font-bold text-white">${item.name}</div>${item.note ? `<div class="text-slate-400 mt-0.5">${item.note}</div>`:''}</div>
+                </div>`).join("") : `<div class="text-xs text-slate-500 italic">No routine set.</div>`;
+
+            am.innerHTML = html(state.amRoutine);
+            pm.innerHTML = html(state.pmRoutine);
+
+            document.getElementById("am-routine-edit").value = state.amRoutine.map((r,i)=>`Step ${i+1}: ${r.name} ${r.note?`[${r.note}]`:''}`).join("\\n");
+            document.getElementById("pm-routine-edit").value = state.pmRoutine.map((r,i)=>`Step ${i+1}: ${r.name} ${r.note?`[${r.note}]`:''}`).join("\\n");
+        }
+
+        function toggleRoutineEdit(show) {
+            const ids = ["am-routine-display", "pm-routine-display", "am-routine-edit", "pm-routine-edit", "btn-edit-routine", "btn-save-routine"];
+            ids.forEach(id => document.getElementById(id).classList.toggle("hidden"));
+        }
+
+        function saveRoutineData() {
+            const p = (txt) => txt.split("\\n").map(l => {
+                const m = l.replace(/^Step\\s*\\d+\\s*:\\s*/i, "").trim().match(/(.*?)(?:\\[(.*?)\\])?$/);
+                return m && m[1].trim() ? { name: m[1].trim(), note: (m[2]||"").trim() } : null;
+            }).filter(Boolean);
+            state.amRoutine = p(document.getElementById("am-routine-edit").value);
+            state.pmRoutine = p(document.getElementById("pm-routine-edit").value);
+            saveLocal(); renderRoutine(); toggleRoutineEdit(false);
+        }
+
+        // --- Core API Base ---
+        async function callGemini(prompt, images = [], tools = false, chatHistory = []) {
+            const k = document.getElementById("global-api-key").value.trim();
+            const m = document.getElementById("global-model-select").value;
+            if(!k) throw new Error("Missing API Key");
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${k}`;
+            
+            // Build contents array for multi-turn chat if history exists, otherwise single turn
+            let contents = [];
+            if (chatHistory && chatHistory.length > 0) {
+                contents = [...chatHistory];
+            }
+            
+            // Current message
+            let parts = [{ text: prompt }];
+            images.forEach(img => parts.push({ inlineData: { mimeType: img.mimeType, data: img.base64Data } }));
+            contents.push({ role: "user", parts: parts });
+
+            let payload = { contents: contents };
+            if(tools) payload.tools = [{ googleSearch: {} }];
+
+            const res = await fetch(url, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(payload) });
+            const j = await res.json();
+            if(!res.ok) throw new Error(j?.error?.message || "API Error");
+            return j.candidates[0].content.parts[0].text;
+        }
+        
+        function getJson(str) { return JSON.parse(str.replace(/^```json/i, "").replace(/```$/, "").trim()); }
+        function fileToBase64(file) {
+            return new Promise((res, rej) => {
+                const r = new FileReader(); r.readAsDataURL(file);
+                r.onload = () => res({ mimeType: file.type, base64Data: r.result.split(",")[1], url: r.result });
+                r.onerror = e => rej(e);
+            });
+        }
+
+        // --- Tab 2: Builder ---
+        let lastBuilderData = [];
+        async function handleBuilderFiles(files) {
+            const grid = document.getElementById("builder-preview"); grid.innerHTML = ""; builderFilesBase64 = [];
+            for(let f of files) {
+                const d = await fileToBase64(f); builderFilesBase64.push(d);
+                grid.innerHTML += `<div class="border border-slate-600 rounded overflow-hidden aspect-square"><img src="${d.url}" class="w-full h-full object-cover"></div>`;
+            }
+        }
+
+        async function generateRoutine() {
+            if(!builderFilesBase64.length) return alert("Upload images first.");
+            document.getElementById("builder-loading").classList.remove("hidden");
+            document.getElementById("builder-result").classList.add("hidden");
+
+            const prompt = `Identify skincare products in images. Sort by texture (thinnest to thickest). Output strict JSON array ONLY: { "steps": [ {"name":"..", "texture":"..", "benefit":"..", "reason":"..", "time":"AM|PM|Both"} ] }`;
+            try {
+                const res = await callGemini(prompt, builderFilesBase64, true);
+                const data = getJson(res).steps;
+                lastBuilderData = data;
+                
+                const target = document.getElementById("builder-steps"); target.innerHTML = "";
+                data.forEach((s, i) => {
+                    target.innerHTML += `
+                        <div class="bg-slate-900/50 p-4 border border-slate-700 rounded-xl relative">
+                            <div class="absolute -left-3 top-4 bg-emerald-600 w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold">${i+1}</div>
+                            <div class="ml-2">
+                                <h4 class="font-bold text-white text-sm">${s.name} <span class="ml-2 text-[10px] px-2 py-0.5 rounded bg-slate-700 text-amber-300">${s.time}</span></h4>
+                                <div class="text-xs text-slate-400 mt-1"><strong>Texture:</strong> ${s.texture}</div>
+                                <div class="text-xs text-emerald-400 mt-1"><strong>Benefit:</strong> ${s.benefit}</div>
+                                <div class="text-xs text-slate-400 mt-1"><strong>Why here:</strong> ${s.reason}</div>
+                            </div>
+                        </div>`;
+                });
+                document.getElementById("builder-result").classList.remove("hidden");
+            } catch(e) { alert("Error: " + e.message); }
+            document.getElementById("builder-loading").classList.add("hidden");
+        }
+
+        function applyRoutineToProfile() {
+            if(!lastBuilderData.length) return;
+            state.amRoutine = []; state.pmRoutine = [];
+            lastBuilderData.forEach(s => {
+                const obj = { name: s.name, note: s.benefit };
+                if(s.time === "AM" || s.time === "Both") state.amRoutine.push({...obj});
+                if(s.time === "PM" || s.time === "Both") state.pmRoutine.push({...obj});
+            });
+            saveLocal(); renderRoutine(); switchTab('profile-tab');
+        }
+
+        // --- Tab 3: Scanner & Chat ---
+        async function handleScanFile(slot) {
+            const el = document.getElementById(`scan-file-${slot}`);
+            if(el.files[0]) {
+                const d = await fileToBase64(el.files[0]);
+                if(slot===1) scanFile1Base64 = d; else scanFile2Base64 = d;
+                document.getElementById(`scan-img-${slot}`).src = d.url;
+                document.getElementById(`scan-img-${slot}`).classList.remove("hidden");
+                document.getElementById(`scan-txt-${slot}`).classList.add("hidden");
+            }
+        }
+        function toggleCompareMode() {
+            const isC = document.getElementById("compare-toggle").checked;
+            document.getElementById("scan-zone-2").classList.toggle("hidden", !isC);
+            if(!isC) { scanFile2Base64 = null; document.getElementById("scan-img-2").classList.add("hidden"); document.getElementById("scan-txt-2").classList.remove("hidden"); }
+        }
+
+        async function runScanner() {
+            if(!scanFile1Base64) return alert("Upload at least product 1.");
+            const isC = document.getElementById("compare-toggle").checked;
+            if(isC && !scanFile2Base64) return alert("Upload product 2 for comparison.");
+
+            document.getElementById("scanner-loading").classList.remove("hidden");
+            document.getElementById("scanner-report").classList.add("hidden");
+
+            const prof = `Skin: ${state.profile.skinProfile}, Goals: ${state.profile.skinGoals}, Blacklist: ${state.profile.blacklist.join(",")}`;
+            let prompt = isC ? 
+                `Compare 2 skincare products images based on user profile: [${prof}]. Provide JSON ONLY: {"mode":"compare", "p1":{"name":"..", "price":"..", "key":".."}, "p2":{"name":"..", "price":"..", "key":".."}, "verdict":"..", "blacklistAlert":".."}` :
+                `Analyze product image based on user profile: [${prof}]. Provide JSON ONLY: {"mode":"single", "name":"..", "price":"..", "ingredients":"..", "suitability":"..", "conflict":"..", "blacklistAlert":".."}`;
+
+            try {
+                const imgs = [scanFile1Base64]; if(isC) imgs.push(scanFile2Base64);
+                const res = await callGemini(prompt, imgs, true);
+                const data = getJson(res);
+                
+                // Save to history
+                const hItem = {
+                    id: Date.now(),
+                    title: isC ? `Compare: ${data.p1?.name||'A'} vs ${data.p2?.name||'B'}` : data.name,
+                    date: new Date().toLocaleString(),
+                    data: data,
+                    chatHistory: [] // initialize empty chat history for this session
+                };
+                state.scanHistory.unshift(hItem);
+                if(state.scanHistory.length > 20) state.scanHistory.pop();
+                saveLocal();
+                
+                currentActiveHistoryIndex = 0; // Point to the newest
+                renderHistory();
+                openReportView(0);
+            } catch(e) { alert("Scan Error: " + e.message); }
+            document.getElementById("scanner-loading").classList.add("hidden");
+        }
+
+        function renderHistory() {
+            const c = document.getElementById("scan-history-list"); c.innerHTML = "";
+            state.scanHistory.forEach((h, i) => {
+                c.innerHTML += `<div onclick="openReportView(${i})" class="p-2.5 bg-slate-900 border border-slate-700 hover:border-emerald-500 rounded-lg cursor-pointer transition-colors text-xs">
+                    <div class="font-bold text-slate-200 truncate">${h.title}</div><div class="text-slate-500 mt-0.5 text-[10px]">${h.date}</div>
+                </div>`;
+            });
+        }
+
+        function clearScanHistory() { state.scanHistory = []; currentActiveHistoryIndex = -1; saveLocal(); renderHistory(); document.getElementById("scanner-report").classList.add("hidden"); }
+
+        function openReportView(index) {
+            currentActiveHistoryIndex = index;
+            const h = state.scanHistory[index];
+            const d = h.data;
+            const t = document.getElementById("scanner-content");
+            
+            if(d.mode === "single") {
+                t.innerHTML = `
+                    ${d.blacklistAlert && d.blacklistAlert !== "-" && d.blacklistAlert !== "None" ? `<div class="bg-rose-500/20 border border-rose-500 text-rose-300 p-3 rounded-lg text-xs font-bold mb-4">⚠️ Blacklist Alert: ${d.blacklistAlert}</div>`:''}
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="bg-slate-900 p-3 rounded-lg"><div class="text-[10px] text-slate-500 uppercase">Product</div><div class="font-bold text-white text-sm">${d.name}</div></div>
+                        <div class="bg-slate-900 p-3 rounded-lg"><div class="text-[10px] text-slate-500 uppercase">Est. Price</div><div class="font-bold text-emerald-400 text-sm">${d.price}</div></div>
+                    </div>
+                    <div class="space-y-3 text-xs">
+                        <div><strong class="text-slate-300">Key Ingredients:</strong> <span class="text-slate-400">${d.ingredients}</span></div>
+                        <div><strong class="text-slate-300">Suitability:</strong> <span class="text-slate-400">${d.suitability}</span></div>
+                        <div><strong class="text-slate-300">Conflict Warning:</strong> <span class="text-amber-400">${d.conflict}</span></div>
+                    </div>`;
+            } else {
+                t.innerHTML = `
+                    <div class="grid grid-cols-2 gap-4 mb-4 text-xs">
+                        <div class="bg-slate-900 p-3 rounded-lg border border-slate-700"><div class="font-bold text-white">${d.p1?.name}</div><div class="text-emerald-400 mt-1">${d.p1?.price}</div><div class="text-slate-400 mt-1">${d.p1?.key}</div></div>
+                        <div class="bg-slate-900 p-3 rounded-lg border border-slate-700"><div class="font-bold text-white">${d.p2?.name}</div><div class="text-emerald-400 mt-1">${d.p2?.price}</div><div class="text-slate-400 mt-1">${d.p2?.key}</div></div>
+                    </div>
+                    ${d.blacklistAlert && d.blacklistAlert !== "-" ? `<div class="bg-rose-500/20 text-rose-300 p-2 rounded text-xs mb-3">⚠️ ${d.blacklistAlert}</div>`:''}
+                    <div class="bg-emerald-900/20 border border-emerald-500/30 p-3 rounded-lg text-xs"><strong class="text-emerald-400 block mb-1">Verdict:</strong><span class="text-emerald-100">${d.verdict}</span></div>
+                `;
+            }
+
+            // Render Chat
+            renderChatHistory();
+            document.getElementById("scanner-report").classList.remove("hidden");
+        }
+
+        // Chat logic tied to history item
+        function renderChatHistory() {
+            const box = document.getElementById("chat-messages");
+            const history = state.scanHistory[currentActiveHistoryIndex].chatHistory || [];
+            
+            if(history.length === 0) {
+                box.innerHTML = `<div class="text-center text-xs text-slate-500 my-4">เริ่มสนทนากับ AI เกี่ยวกับสินค้านี้ได้เลย!</div>`;
+                return;
+            }
+            
+            box.innerHTML = history.map(m => `
+                <div class="flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}">
+                    <div class="max-w-[80%] p-3 rounded-xl text-xs ${m.role === 'user' ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-200'}">
+                        ${m.parts[0].text}
+                    </div>
+                </div>
+            `).join("");
+            box.scrollTop = box.scrollHeight;
+        }
+
+        async function sendChat() {
+            const input = document.getElementById("chat-input");
+            const msg = input.value.trim();
+            if(!msg || currentActiveHistoryIndex < 0) return;
+            
+            input.value = "";
+            const hItem = state.scanHistory[currentActiveHistoryIndex];
+            if(!hItem.chatHistory) hItem.chatHistory = [];
+            
+            // Add user message to UI immediately
+            hItem.chatHistory.push({ role: "user", parts: [{ text: msg }] });
+            renderChatHistory();
+
+            // Construct Contextual Prompt overlaying the actual history
+            const sysPrompt = `System context: The user is asking about a skincare product they just scanned. Here is the scan result JSON: ${JSON.stringify(hItem.data)}. User profile: Skin=${state.profile.skinProfile}, Goals=${state.profile.skinGoals}, Blacklist=${state.profile.blacklist.join(",")}. Current Routine AM: ${JSON.stringify(state.amRoutine)}. Current Routine PM: ${JSON.stringify(state.pmRoutine)}. Please answer concisely and helpfully.`;
+
+            // Prepare history for Gemini API (injecting context into a synthetic first message or just handling it)
+            // To keep it simple, we wrap the latest user message with context if it's the first chat turn, or just send it if context is established.
+            // Actually, we can just send the sysPrompt + user query as the current prompt, and pass previous chat as context.
+            
+            let promptToSend = msg;
+            if(hItem.chatHistory.length === 1) { // First message
+                promptToSend = `${sysPrompt}\n\nUser Question: ${msg}`;
+            }
+
+            // Exclude the newly added user message from the history array we pass (since we send it as current)
+            const historyForApi = hItem.chatHistory.slice(0, -1);
+
+            try {
+                // Show typing indicator
+                const box = document.getElementById("chat-messages");
+                const typingId = "typing-" + Date.now();
+                box.innerHTML += `<div id="${typingId}" class="flex justify-start"><div class="max-w-[80%] p-3 rounded-xl text-xs bg-slate-700 text-slate-400 italic">AI is typing...</div></div>`;
+                box.scrollTop = box.scrollHeight;
+
+                const res = await callGemini(promptToSend, [], false, historyForApi);
+                
+                // Add model response
+                hItem.chatHistory.push({ role: "model", parts: [{ text: res }] });
+                saveLocal();
+                renderChatHistory();
+            } catch(e) { 
+                alert("Chat Error: " + e.message); 
+                hItem.chatHistory.pop(); // remove failed msg
+                renderChatHistory();
+            }
+        }
+
+
+        // --- Tab 4: AI Suggestions ---
+        async function generateSuggestions() {
+            const btn = document.getElementById("sugg-loading");
+            const resBox = document.getElementById("sugg-result");
+            btn.classList.remove("hidden"); resBox.classList.add("hidden");
+
+            const prompt = `Analyze user skincare routine and profile. Profile: Skin=${state.profile.skinProfile}, Goals=${state.profile.skinGoals}. 
+Routine AM: ${JSON.stringify(state.amRoutine)}. Routine PM: ${JSON.stringify(state.pmRoutine)}.
+Generate proactive advice in strict JSON ONLY:
+{
+  "gaps": ["missing step 1", "missing step 2"],
+  "tips": ["synergy tip 1", "conflict to avoid 2"],
+  "products": [
+    {"tier":"Budget (<500฿)", "name":"Product A", "price":"xxx ฿", "reason":"why"},
+    {"tier":"Mid (500-1500฿)", "name":"Product B", "price":"xxx ฿", "reason":"why"},
+    {"tier":"Premium (>1500฿)", "name":"Product C", "price":"xxx ฿", "reason":"why"}
+  ]
+}
+Use Web Search to ensure product pricing is accurate.`;
+
+            try {
+                const res = await callGemini(prompt, [], true);
+                const data = getJson(res);
+
+                document.getElementById("sugg-gaps").innerHTML = data.gaps.map(g => `<li class="mb-1">${g}</li>`).join("");
+                document.getElementById("sugg-tips").innerHTML = data.tips.map(t => `<li class="mb-1">${t}</li>`).join("");
+                
+                const pBox = document.getElementById("sugg-products"); pBox.innerHTML = "";
+                data.products.forEach(p => {
+                    let color = p.tier.includes("Budget") ? "emerald" : (p.tier.includes("Mid") ? "amber" : "purple");
+                    pBox.innerHTML += `
+                        <div class="bg-slate-900 border border-slate-700 p-4 rounded-xl flex flex-col justify-between">
+                            <div>
+                                <div class="text-[10px] font-bold text-${color}-400 uppercase tracking-wider mb-1">${p.tier}</div>
+                                <div class="font-bold text-white text-sm">${p.name}</div>
+                                <div class="text-xs text-${color}-300 mt-1">${p.price}</div>
+                                <p class="text-xs text-slate-400 mt-2">${p.reason}</p>
+                            </div>
+                        </div>`;
+                });
+                resBox.classList.remove("hidden");
+            } catch(e) { alert("Suggestions Error: " + e.message); }
+            btn.classList.add("hidden");
+        }
+
+
+        // --- Tab 5: Export & Reminders ---
+        function exportRoutineToPDF() {
+            document.getElementById("pdf-profile").textContent = state.profile.skinProfile || "-";
+            document.getElementById("pdf-goals").textContent = state.profile.skinGoals || "-";
+            document.getElementById("pdf-blacklist").textContent = state.profile.blacklist.join(", ") || "None";
+            
+            document.getElementById("pdf-am").innerHTML = state.amRoutine.map((r,i)=>`<div style="padding: 4px 0; border-bottom: 1px dashed #cbd5e1;"><strong>Step ${i+1}:</strong> ${r.name} ${r.note?`<br><span style="color:#64748b; font-size:10px;">${r.note}</span>`:''}</div>`).join("");
+            document.getElementById("pdf-pm").innerHTML = state.pmRoutine.map((r,i)=>`<div style="padding: 4px 0; border-bottom: 1px dashed #cbd5e1;"><strong>Step ${i+1}:</strong> ${r.name} ${r.note?`<br><span style="color:#64748b; font-size:10px;">${r.note}</span>`:''}</div>`).join("");
+
+            const canvas = document.getElementById("pdf-canvas");
+            html2pdf().set({ margin: 10, filename: 'AI_Skincare_Routine.pdf', html2canvas: { scale: 2 }, jsPDF: { format: 'a4', orientation: 'portrait' } }).from(canvas).save();
+        }
+
+        // Reminders Logic
+        function saveReminders() {
+            state.reminders.am = document.getElementById("time-am").value;
+            state.reminders.pm = document.getElementById("time-pm").value;
+            saveLocal();
+        }
+
+        function initReminders() {
+            setInterval(() => {
+                const now = new Date();
+                const h = String(now.getHours()).padStart(2, '0');
+                const m = String(now.getMinutes()).padStart(2, '0');
+                const currTime = `${h}:${m}`;
+                const sec = now.getSeconds();
+                
+                // Only trigger at exactly second 0 to avoid multiple triggers in a minute
+                if(sec === 0) {
+                    if(state.reminders.am && currTime === state.reminders.am) showToast("AM Routine", "ได้เวลาดูแลผิวช่วงเช้าแล้ว! ☀️");
+                    if(state.reminders.pm && currTime === state.reminders.pm) showToast("PM Routine", "ได้เวลาดูแลผิวช่วงก่อนนอนแล้ว! 🌙");
+                }
+            }, 1000);
+        }
+
+        function showToast(title, msg) {
+            document.getElementById("toast-title").innerText = title;
+            document.getElementById("toast-msg").innerText = msg;
+            const t = document.getElementById("toast-container");
+            t.classList.add("show");
+            setTimeout(() => { closeToast(); }, 5000);
+        }
+        function closeToast() { document.getElementById("toast-container").classList.remove("show"); }
+    </script>
+</body>
+</html>
+"""
+
+with open("skincare_ai_assistant_v2.html", "w", encoding="utf-8") as f:
+    f.write(html_content)
+print("File successfully generated as 'skincare_ai_assistant_v2.html'")
