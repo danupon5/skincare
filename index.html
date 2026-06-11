@@ -643,7 +643,7 @@
 
             try {
                 const imgs = [scanFile1Base64]; if(isC) imgs.push(scanFile2Base64);
-                const res = await callGemini(prompt, imgs, true);
+                const res = await callGemini(prompt, imgs, false);
                 const data = getJson(res);
                 
                 // Save to history
@@ -796,7 +796,7 @@ Generate proactive advice in strict JSON ONLY:
 Use Web Search to ensure product pricing is accurate.`;
 
             try {
-                const res = await callGemini(prompt, [], true);
+                const res = await callGemini(prompt, [], false);
                 const data = getJson(res);
 
                 document.getElementById("sugg-gaps").innerHTML = data.gaps.map(g => `<li class="mb-1">${g}</li>`).join("");
