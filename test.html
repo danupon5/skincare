@@ -4,11 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Skincare AI Assistant v2</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <!-- FontAwesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- html2pdf.js for High-fidelity PDF export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap');
@@ -37,18 +34,16 @@
 </head>
 <body class="min-h-screen flex flex-col overflow-x-hidden">
 
-    <!-- Toast Notification Container -->
     <div id="toast-container" class="toast bg-emerald-600 text-white px-6 py-4 rounded-xl shadow-lg border border-emerald-500 flex items-center gap-3">
         <i class="fa-solid fa-bell text-xl animate-bounce"></i>
         <div>
             <h4 id="toast-title" class="font-bold text-sm">แจ้งเตือน Routine!</h4>
             <p id="toast-msg" class="text-xs text-emerald-100">ได้เวลาดูแลผิวของคุณแล้ว</p>
         </div>
-        <button onclick="closeToast()" class="ml-4 text-emerald-200 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        <button onclick="closeToast()" class="ml-4 text-emerald-200 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
     </div>
 
-    <!-- Header Section -->
-    <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-40 shadow-md">
+    <header class="bg-slate-800 border-b border-slate-700 relative z-40 shadow-md">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div class="flex items-center space-x-3">
@@ -61,7 +56,6 @@
                     </div>
                 </div>
 
-                <!-- API Controls -->
                 <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-slate-900/50 p-2 rounded-xl border border-slate-700">
                     <div class="flex items-center space-x-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-600">
                         <i class="fa-solid fa-layer-group text-slate-400 text-sm"></i>
@@ -86,8 +80,7 @@
         </div>
     </header>
 
-    <!-- Navigation Bar -->
-    <nav class="bg-slate-800 border-b border-slate-700 sticky top-[73px] md:top-[81px] z-30">
+    <nav class="bg-slate-800 border-b border-slate-700 relative z-30">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex space-x-1 overflow-x-auto no-scrollbar py-2">
                 <button onclick="switchTab('profile-tab')" id="btn-profile-tab" class="tab-btn active flex items-center space-x-2 px-4 py-2 text-sm font-semibold rounded-lg text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 transition-all whitespace-nowrap cursor-pointer">
@@ -109,13 +102,10 @@
         </div>
     </nav>
 
-    <!-- Main Content -->
     <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         
-        <!-- ==================== TAB 1: MY PROFILE ==================== -->
         <div id="profile-tab" class="tab-content active space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <!-- Skin Profile -->
                 <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-md flex flex-col justify-between">
                     <div>
                         <div class="flex items-center space-x-2 text-emerald-400 font-bold mb-3 text-sm uppercase tracking-wide">
@@ -130,7 +120,6 @@
                     </div>
                 </div>
 
-                <!-- Skin Goals -->
                 <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-md flex flex-col justify-between">
                     <div>
                         <div class="flex items-center space-x-2 text-emerald-400 font-bold mb-3 text-sm uppercase tracking-wide">
@@ -145,7 +134,6 @@
                     </div>
                 </div>
 
-                <!-- Blacklist -->
                 <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-md flex flex-col justify-between">
                     <div>
                         <div class="flex items-center space-x-2 text-rose-400 font-bold mb-3 text-sm uppercase tracking-wide">
@@ -161,7 +149,6 @@
                 </div>
             </div>
 
-            <!-- Routine Display -->
             <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-md overflow-hidden">
                 <div class="border-b border-slate-700 bg-slate-800/50 px-6 py-4 flex justify-between items-center">
                     <h2 class="text-base font-bold text-white flex items-center gap-2">
@@ -191,7 +178,6 @@
             </div>
         </div>
 
-        <!-- ==================== TAB 2: ROUTINE BUILDER ==================== -->
         <div id="builder-tab" class="tab-content space-y-6">
             <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-md">
                 <div class="max-w-xl">
@@ -229,10 +215,8 @@
             </div>
         </div>
 
-        <!-- ==================== TAB 3: PRODUCT SCANNER ==================== -->
         <div id="scanner-tab" class="tab-content space-y-6">
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <!-- Control Panel (Upload & History) -->
                 <div class="lg:col-span-4 space-y-4">
                     <div class="bg-slate-800 border border-slate-700 p-5 rounded-2xl shadow-md">
                         <h2 class="text-base font-bold text-white mb-2"><i class="fa-solid fa-barcode text-emerald-400 mr-2"></i>Product Scanner</h2>
@@ -272,7 +256,6 @@
                     </div>
                 </div>
 
-                <!-- Analysis & Chat View -->
                 <div class="lg:col-span-8 space-y-4">
                     <div id="scanner-loading" class="hidden bg-slate-800 border border-slate-700 p-12 rounded-2xl shadow-md text-center">
                         <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-emerald-500 border-t-transparent mb-3"></div>
@@ -280,13 +263,11 @@
                     </div>
 
                     <div id="scanner-report" class="hidden flex flex-col bg-slate-800 border border-slate-700 rounded-2xl shadow-md overflow-hidden min-h-[500px]">
-                        <!-- Report Data -->
                         <div class="bg-slate-700/30 border-b border-slate-700 px-5 py-3">
                             <h3 class="text-sm font-bold text-white"><i class="fa-solid fa-clipboard-check text-emerald-400 mr-2"></i>Analysis Report</h3>
                         </div>
                         <div id="scanner-content" class="p-5 overflow-y-auto max-h-[400px] border-b border-slate-700 custom-scrollbar text-sm"></div>
                         
-                        <!-- Contextual Chat -->
                         <div class="flex-grow flex flex-col bg-slate-900/50">
                             <div class="px-5 py-2 border-b border-slate-700 bg-slate-800/80 text-xs font-bold text-slate-400 flex items-center gap-2">
                                 <i class="fa-solid fa-comments text-emerald-400"></i> AI Chat Assistant (ถามเพิ่มเติมเกี่ยวกับสินค้านี้)
@@ -304,7 +285,6 @@
             </div>
         </div>
 
-        <!-- ==================== TAB 4: AI SUGGESTIONS ==================== -->
         <div id="suggestions-tab" class="tab-content space-y-6">
             <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-md">
                 <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
@@ -324,32 +304,26 @@
             </div>
 
             <div id="sugg-result" class="hidden space-y-6">
-                <!-- Gap Analysis -->
                 <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-md">
                     <h3 class="text-md font-bold text-rose-400 mb-4 border-b border-slate-700 pb-2"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Routine Gap Analysis (จุดที่ขาดหายไป)</h3>
                     <ul id="sugg-gaps" class="list-disc list-inside text-sm text-slate-300 space-y-2"></ul>
                 </div>
                 
-                <!-- Synergy Tips -->
                 <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-md">
                     <h3 class="text-md font-bold text-emerald-400 mb-4 border-b border-slate-700 pb-2"><i class="fa-solid fa-flask mr-2"></i>Ingredient Synergy Tips</h3>
                     <ul id="sugg-tips" class="list-disc list-inside text-sm text-slate-300 space-y-2"></ul>
                 </div>
 
-                <!-- Product Recommendations -->
                 <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-md">
                     <h3 class="text-md font-bold text-amber-400 mb-4 border-b border-slate-700 pb-2"><i class="fa-solid fa-star mr-2"></i>Product Recommendations</h3>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="sugg-products">
-                        <!-- Rendered via JS -->
-                    </div>
+                        </div>
                 </div>
             </div>
         </div>
 
-        <!-- ==================== TAB 5: EXPORT & REMINDER ==================== -->
         <div id="export-tab" class="tab-content space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Export Module -->
                 <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-md">
                     <h2 class="text-lg font-bold text-white mb-2"><i class="fa-solid fa-file-pdf text-emerald-400 mr-2"></i>Export Routine (PDF)</h2>
                     <p class="text-xs text-slate-400 mb-6">บันทึกตารางดูแลผิวของคุณเป็นไฟล์ PDF เพื่อพิมพ์แปะกระจกห้องน้ำ (เอกสารจะถูกจัดรูปแบบให้อ่านง่ายพื้นหลังสีสว่าง)</p>
@@ -358,7 +332,6 @@
                     </button>
                 </div>
 
-                <!-- Reminder Module -->
                 <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-md">
                     <h2 class="text-lg font-bold text-white mb-2"><i class="fa-solid fa-bell text-amber-400 mr-2"></i>In-Page Routine Reminder</h2>
                     <p class="text-xs text-slate-400 mb-4">ตั้งเวลาแจ้งเตือนให้ทำสกินแคร์รูทีน (ทำงานเมื่อคุณเปิดแท็บแอปนี้ทิ้งไว้)</p>
@@ -376,7 +349,6 @@
                 </div>
             </div>
 
-            <!-- PDF Render Canvas (Hidden, Light Theme specifically for Printing) -->
             <div class="hidden">
                 <div id="pdf-canvas" class="p-8 bg-white text-slate-900" style="width: 210mm; min-height: 297mm; font-family: 'Sarabun', sans-serif;">
                     <div style="border-bottom: 3px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px;">
@@ -405,7 +377,6 @@
         </div>
     </main>
 
-    <!-- CORE LOGIC -->
     <script>
         // --- State Management ---
         let state = {
@@ -491,7 +462,7 @@
             box.innerHTML = state.profile.blacklist.length ? "" : `<span class="text-slate-500 italic text-xs">ไม่มีบัญชีดำ</span>`;
             state.profile.blacklist.forEach((tag, i) => {
                 box.innerHTML += `<span class="inline-flex items-center px-2 py-1 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs">
-                    ${tag} <button onclick="removeBl(${i})" class="ml-1 hover:text-white"><i class="fa-solid fa-xmark text-[10px]"></i></button></span>`;
+                    ${tag} <button onclick="removeBl(${i})" class="ml-1 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark text-[10px]"></i></button></span>`;
             });
         }
 
@@ -535,8 +506,8 @@
             am.innerHTML = html(state.amRoutine);
             pm.innerHTML = html(state.pmRoutine);
 
-            document.getElementById("am-routine-edit").value = state.amRoutine.map((r,i)=>`Step ${i+1}: ${r.name} ${r.note?`[${r.note}]`:''}`).join("\\n");
-            document.getElementById("pm-routine-edit").value = state.pmRoutine.map((r,i)=>`Step ${i+1}: ${r.name} ${r.note?`[${r.note}]`:''}`).join("\\n");
+            document.getElementById("am-routine-edit").value = state.amRoutine.map((r,i)=>`Step ${i+1}: ${r.name} ${r.note?`[${r.note}]`:''}`).join("\n");
+            document.getElementById("pm-routine-edit").value = state.pmRoutine.map((r,i)=>`Step ${i+1}: ${r.name} ${r.note?`[${r.note}]`:''}`).join("\n");
         }
 
         function toggleRoutineEdit(show) {
@@ -545,8 +516,8 @@
         }
 
         function saveRoutineData() {
-            const p = (txt) => txt.split("\\n").map(l => {
-                const m = l.replace(/^Step\\s*\\d+\\s*:\\s*/i, "").trim().match(/(.*?)(?:\\[(.*?)\\])?$/);
+            const p = (txt) => txt.split("\n").map(l => {
+                const m = l.replace(/^Step\s*\d+\s*:\s*/i, "").trim().match(/(.*?)(?:\[(.*?)\])?$/);
                 return m && m[1].trim() ? { name: m[1].trim(), note: (m[2]||"").trim() } : null;
             }).filter(Boolean);
             state.amRoutine = p(document.getElementById("am-routine-edit").value);
@@ -776,10 +747,7 @@
             // Construct Contextual Prompt overlaying the actual history
             const sysPrompt = `System context: The user is asking about a skincare product they just scanned. Here is the scan result JSON: ${JSON.stringify(hItem.data)}. User profile: Skin=${state.profile.skinProfile}, Goals=${state.profile.skinGoals}, Blacklist=${state.profile.blacklist.join(",")}. Current Routine AM: ${JSON.stringify(state.amRoutine)}. Current Routine PM: ${JSON.stringify(state.pmRoutine)}. Please answer concisely and helpfully.`;
 
-            // Prepare history for Gemini API (injecting context into a synthetic first message or just handling it)
-            // To keep it simple, we wrap the latest user message with context if it's the first chat turn, or just send it if context is established.
-            // Actually, we can just send the sysPrompt + user query as the current prompt, and pass previous chat as context.
-            
+            // Prepare history for Gemini API
             let promptToSend = msg;
             if(hItem.chatHistory.length === 1) { // First message
                 promptToSend = `${sysPrompt}\n\nUser Question: ${msg}`;
@@ -807,7 +775,6 @@
                 renderChatHistory();
             }
         }
-
 
         // --- Tab 4: AI Suggestions ---
         async function generateSuggestions() {
@@ -853,7 +820,6 @@ Use Web Search to ensure product pricing is accurate.`;
             } catch(e) { alert("Suggestions Error: " + e.message); }
             btn.classList.add("hidden");
         }
-
 
         // --- Tab 5: Export & Reminders ---
         function exportRoutineToPDF() {
