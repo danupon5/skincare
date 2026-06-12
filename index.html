@@ -1,916 +1,1787 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Skincare AI Assistant v2</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap');
-        body {
-            font-family: 'Plus Jakarta Sans', 'Sarabun', sans-serif;
-            background-color: #0f172a; /* slate-900 */
-            color: #e2e8f0; /* slate-200 */
-        }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; animation: fadeIn 0.3s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-        
-        /* Custom Scrollbar for dark mode */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #1e293b; }
-        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
-        
-        /* Toast Notification */
-        .toast {
-            position: fixed; top: 20px; right: 20px; z-index: 1000;
-            transform: translateX(120%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .toast.show { transform: translateX(0); }
-    </style>
-</head>
-<body class="min-h-screen flex flex-col overflow-x-hidden">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Skincare AI Assistant</title>
+<style>
+  :root{
+    --bg:#0f1419;
+    --panel:#161d26;
+    --panel-2:#1d2630;
+    --line:#2a3540;
+    --ink:#e8eef2;
+    --ink-dim:#9aa9b5;
+    --ink-faint:#67767f;
+    --rose:#e8a0a8;
+    --rose-deep:#c97d86;
+    --sage:#9ec8a8;
+    --sage-deep:#6fa37e;
+    --gold:#e3c181;
+    --warn:#e6b86a;
+    --danger:#e08a82;
+    --ok:#86c79b;
+    --radius:14px;
+    --shadow:0 8px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 85% -10%, rgba(232,160,168,.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(158,200,168,.08), transparent 55%),
+      var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Thai",Roboto,sans-serif;
+    line-height:1.55;
+    min-height:100vh;
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:20px 16px 120px;}
+  header.app{display:flex;align-items:center;gap:14px;margin-bottom:18px;flex-wrap:wrap;}
+  .logo{
+    width:42px;height:42px;border-radius:12px;flex:none;
+    background:linear-gradient(135deg,var(--rose),var(--sage));
+    display:grid;place-items:center;font-size:22px;box-shadow:var(--shadow);
+  }
+  .title h1{font-size:19px;margin:0;letter-spacing:.2px;font-weight:700;}
+  .title p{margin:2px 0 0;color:var(--ink-dim);font-size:12.5px;}
+  .spacer{flex:1;}
 
-    <div id="toast-container" class="toast bg-emerald-600 text-white px-6 py-4 rounded-xl shadow-lg border border-emerald-500 flex items-center gap-3">
-        <i class="fa-solid fa-bell text-xl animate-bounce"></i>
-        <div>
-            <h4 id="toast-title" class="font-bold text-sm">แจ้งเตือน Routine!</h4>
-            <p id="toast-msg" class="text-xs text-emerald-100">ได้เวลาดูแลผิวของคุณแล้ว</p>
+  .config{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px;margin-bottom:16px;
+  }
+  .config summary{
+    cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;
+    font-weight:600;font-size:14px;
+  }
+  .config summary::-webkit-details-marker{display:none;}
+  .config summary .chev{margin-left:auto;color:var(--ink-faint);transition:transform .2s;}
+  .config[open] summary .chev{transform:rotate(180deg);}
+  .config .body{margin-top:14px;display:grid;gap:12px;}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--danger);flex:none;}
+  .dot.on{background:var(--ok);}
+  label.fld{display:block;font-size:12.5px;color:var(--ink-dim);margin-bottom:6px;font-weight:600;}
+  input[type=password],input[type=text],select,textarea{
+    width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);
+    border-radius:10px;padding:11px 12px;font-size:14px;font-family:inherit;outline:none;
+  }
+  input:focus,select:focus,textarea:focus{border-color:var(--rose-deep);}
+  textarea{resize:vertical;min-height:90px;line-height:1.6;}
+  .hint{font-size:11.5px;color:var(--ink-faint);margin-top:5px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media(max-width:620px){.grid2{grid-template-columns:1fr;}}
+
+  .tabs{
+    display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;padding:6px;margin-bottom:18px;overflow-x:auto;
+  }
+  .tab{
+    flex:1;min-width:max-content;border:0;background:transparent;color:var(--ink-dim);
+    padding:10px 12px;border-radius:10px;cursor:pointer;font-size:13.5px;font-weight:600;
+    white-space:nowrap;font-family:inherit;transition:.15s;
+  }
+  .tab:hover{color:var(--ink);}
+  .tab.active{background:var(--panel-2);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line);}
+
+  .view{display:none;animation:fade .25s ease;}
+  .view.active{display:block;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px;margin-bottom:14px;
+  }
+  .card h2{font-size:15px;margin:0 0 4px;display:flex;align-items:center;gap:8px;}
+  .card .sub{color:var(--ink-dim);font-size:12.5px;margin:0 0 14px;}
+  .card .ic{font-size:17px;}
+
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .btn{
+    border:1px solid var(--line);background:var(--panel-2);color:var(--ink);
+    padding:9px 15px;border-radius:10px;cursor:pointer;font-size:13.5px;font-weight:600;
+    font-family:inherit;transition:.15s;display:inline-flex;align-items:center;gap:7px;
+  }
+  .btn:hover{border-color:var(--ink-faint);}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .btn.primary{background:linear-gradient(135deg,var(--rose-deep),var(--rose));border-color:transparent;color:#2a1416;}
+  .btn.primary:hover{filter:brightness(1.05);}
+  .btn.sage{background:linear-gradient(135deg,var(--sage-deep),var(--sage));border-color:transparent;color:#10231a;}
+  .btn.ghost{background:transparent;}
+  .btn.sm{padding:6px 11px;font-size:12.5px;}
+  .btn.danger{color:var(--danger);}
+
+  .pill{
+    display:inline-flex;align-items:center;gap:6px;background:var(--panel-2);
+    border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:12.5px;
+  }
+  .pill .x{cursor:pointer;color:var(--ink-faint);font-weight:700;}
+  .pill .x:hover{color:var(--danger);}
+  .tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+
+  .saved-flash{color:var(--ok);font-size:12.5px;opacity:0;transition:opacity .3s;}
+  .saved-flash.show{opacity:1;}
+
+  .ampm{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media(max-width:620px){.ampm{grid-template-columns:1fr;}}
+  .ampm .col h3{font-size:13px;margin:0 0 8px;color:var(--ink-dim);display:flex;align-items:center;gap:7px;}
+
+  .drop{
+    border:1.5px dashed var(--line);border-radius:12px;padding:22px;text-align:center;
+    cursor:pointer;transition:.15s;background:var(--panel-2);
+  }
+  .drop:hover,.drop.over{border-color:var(--rose-deep);background:#212c36;}
+  .drop .big{font-size:30px;}
+  .drop .t{font-weight:600;margin-top:6px;font-size:14px;}
+  .drop .s{color:var(--ink-faint);font-size:12px;margin-top:3px;}
+
+  .thumbs{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;}
+  .thumb{position:relative;width:84px;height:84px;border-radius:10px;overflow:hidden;border:1px solid var(--line);}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .thumb .rm{
+    position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;
+    background:rgba(0,0,0,.6);color:#fff;border:0;cursor:pointer;font-size:12px;line-height:1;
+    display:grid;place-items:center;
+  }
+
+  .step{
+    border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:10px;
+    background:var(--panel-2);
+  }
+  .step .head{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+  .step .num{
+    width:26px;height:26px;border-radius:8px;flex:none;display:grid;place-items:center;
+    font-weight:700;font-size:13px;background:linear-gradient(135deg,var(--rose-deep),var(--rose));color:#2a1416;
+  }
+  .step .nm{font-weight:700;font-size:14px;}
+  .step .meta{font-size:12px;color:var(--ink-dim);margin:2px 0;}
+  .badge{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:.3px;}
+  .badge.am{background:rgba(227,193,129,.18);color:var(--gold);}
+  .badge.pm{background:rgba(124,150,232,.18);color:#9db0ee;}
+  .badge.both{background:rgba(158,200,168,.18);color:var(--sage);}
+
+  .ing{display:flex;gap:8px;padding:7px 0;border-top:1px solid var(--line);font-size:13px;}
+  .ing:first-of-type{border-top:0;}
+  .ing .k{font-weight:700;flex:none;min-width:120px;color:var(--rose);}
+  .verdict{border-radius:12px;padding:13px 14px;margin-top:6px;border:1px solid var(--line);font-size:13.5px;}
+  .verdict.good{border-color:var(--ok);background:rgba(134,199,155,.08);}
+  .verdict.warn{border-color:var(--warn);background:rgba(230,184,106,.08);}
+  .verdict.bad{border-color:var(--danger);background:rgba(224,138,130,.08);}
+  .verdict .vh{font-weight:700;margin-bottom:5px;display:flex;align-items:center;gap:8px;}
+
+  .price{font-weight:700;color:var(--gold);}
+
+  .loading{display:flex;align-items:center;gap:11px;color:var(--ink-dim);font-size:13.5px;padding:8px 0;}
+  .spin{width:18px;height:18px;border:2.5px solid var(--line);border-top-color:var(--rose);border-radius:50%;animation:sp .7s linear infinite;flex:none;}
+  @keyframes sp{to{transform:rotate(360deg);}}
+
+  .errbox{border:1px solid var(--danger);background:rgba(224,138,130,.08);border-radius:10px;padding:11px 13px;font-size:13px;color:#f0b8b2;margin-top:10px;}
+
+  .empty{text-align:center;color:var(--ink-faint);padding:26px 10px;font-size:13px;}
+  .hist-item{display:flex;gap:11px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;cursor:pointer;background:var(--panel-2);}
+  .hist-item:hover{border-color:var(--ink-faint);}
+  .hist-item img{width:46px;height:46px;border-radius:8px;object-fit:cover;flex:none;}
+  .hist-item .hn{font-weight:600;font-size:13.5px;}
+  .hist-item .hm{font-size:11.5px;color:var(--ink-faint);}
+
+  .seg{display:inline-flex;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:4px;gap:4px;}
+  .seg button{border:0;background:transparent;color:var(--ink-dim);padding:6px 13px;border-radius:7px;cursor:pointer;font-size:12.5px;font-weight:600;font-family:inherit;}
+  .seg button.on{background:var(--panel);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line);}
+
+  .toast{
+    position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);
+    background:var(--panel-2);border:1px solid var(--line);box-shadow:var(--shadow);
+    color:var(--ink);padding:11px 18px;border-radius:12px;font-size:13.5px;font-weight:600;
+    opacity:0;pointer-events:none;transition:.25s;z-index:50;max-width:90vw;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .toast.ok{border-color:var(--ok);}
+  .toast.bad{border-color:var(--danger);}
+
+  /* ── Chat UI ── */
+  .chat-wrap{margin-top:6px;}
+  .chat-msgs{
+    max-height:380px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;
+    padding:10px 0;scroll-behavior:smooth;
+  }
+  .chat-bubble{max-width:88%;padding:10px 13px;border-radius:14px;font-size:13.5px;line-height:1.55;}
+  .chat-bubble.user{
+    align-self:flex-end;
+    background:linear-gradient(135deg,var(--rose-deep),var(--rose));color:#2a1416;
+    border-bottom-right-radius:4px;
+  }
+  .chat-bubble.ai{
+    align-self:flex-start;
+    background:var(--panel-2);border:1px solid var(--line);
+    border-bottom-left-radius:4px;white-space:pre-wrap;
+  }
+  .chat-input-row{display:flex;gap:8px;margin-top:10px;}
+  .chat-input-row input{flex:1;min-width:0;}
+  .chat-input-row button{flex:none;}
+  .chat-suggestions{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px;}
+  .chat-sug{
+    font-size:12px;border:1px solid var(--line);background:var(--panel-2);
+    color:var(--ink-dim);padding:5px 10px;border-radius:999px;cursor:pointer;
+    font-family:inherit;transition:.12s;
+  }
+  .chat-sug:hover{border-color:var(--rose-deep);color:var(--ink);}
+
+  /* ── AI Suggestions ── */
+  .sug-section{margin-bottom:18px;}
+  .sug-section h3{font-size:13.5px;font-weight:700;margin:0 0 10px;display:flex;align-items:center;gap:7px;}
+  .gap-item{
+    display:flex;gap:10px;align-items:flex-start;padding:10px 12px;
+    border:1px solid var(--line);border-radius:10px;margin-bottom:8px;background:var(--panel-2);
+    font-size:13px;
+  }
+  .gap-sev{font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px;flex:none;margin-top:1px;}
+  .gap-sev.high{background:rgba(224,138,130,.2);color:var(--danger);}
+  .gap-sev.medium{background:rgba(230,184,106,.2);color:var(--warn);}
+  .gap-sev.low{background:rgba(134,199,155,.2);color:var(--ok);}
+
+  .rec-tier{margin-bottom:16px;}
+  .tier-label{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;margin-bottom:8px;
+  }
+  .tier-label.budget{background:rgba(134,199,155,.15);color:var(--sage);}
+  .tier-label.mid{background:rgba(227,193,129,.15);color:var(--gold);}
+  .tier-label.premium{background:rgba(232,160,168,.15);color:var(--rose);}
+  .rec-card{
+    position:relative;border:1px solid var(--line);border-radius:10px;padding:11px 38px 11px 13px;
+    margin-bottom:8px;background:var(--panel-2);font-size:13px;
+  }
+  .rec-card .rn{font-weight:700;margin-bottom:3px;}
+  .rec-card .rb{color:var(--ink-dim);font-size:12px;}
+  .wish-btn{
+    position:absolute;top:9px;right:9px;width:26px;height:26px;border-radius:50%;
+    border:1px solid var(--line);background:var(--panel);color:var(--rose);
+    cursor:pointer;font-size:15px;line-height:1;display:grid;place-items:center;
+    transition:.15s;padding:0;
+  }
+  .wish-btn:hover{border-color:var(--rose-deep);transform:scale(1.1);}
+  .wish-btn.on{background:linear-gradient(135deg,var(--rose-deep),var(--rose));color:#2a1416;border-color:transparent;}
+
+  .wish-item{display:flex;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;background:var(--panel-2);}
+  .wish-item .wn{font-weight:600;font-size:13.5px;}
+
+  .syn-item{
+    display:flex;gap:9px;align-items:flex-start;padding:9px 12px;
+    border:1px solid var(--line);border-radius:10px;margin-bottom:7px;
+    background:var(--panel-2);font-size:13px;
+  }
+  .syn-icon{font-size:16px;flex:none;margin-top:1px;}
+
+  /* ── Duplicates ── */
+  .dup-item{border:1px solid var(--warn);border-radius:10px;padding:11px 13px;margin-bottom:8px;background:rgba(230,184,106,.06);}
+  .dup-tags{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:6px;}
+  .dup-tag{background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:3px 9px;font-size:12.5px;font-weight:600;}
+  .dup-arrow{color:var(--warn);font-weight:700;font-size:14px;}
+  .dup-reason{font-size:12.5px;color:var(--ink-dim);margin-bottom:7px;}
+  .dup-verdict{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;font-weight:600;}
+  .dup-keep{color:var(--ok);}
+  .dup-remove{color:var(--danger);}
+
+  .add-routine-bar{margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+  .add-routine-status{font-size:12.5px;color:var(--ink-dim);}
+  .add-routine-status.ok{color:var(--ok);}
+  .add-routine-status.err{color:var(--danger);}
+  .reseq-preview{
+    margin-top:12px;border:1px solid var(--line);border-radius:10px;overflow:hidden;
+  }
+  .reseq-preview .rp-head{
+    display:flex;align-items:center;gap:8px;padding:8px 12px;
+    background:var(--panel-2);font-size:12.5px;font-weight:700;border-bottom:1px solid var(--line);
+  }
+  .reseq-preview .rp-cols{display:grid;grid-template-columns:1fr 1fr;gap:0;}
+  @media(max-width:540px){.reseq-preview .rp-cols{grid-template-columns:1fr;}}
+  .reseq-preview .rp-col{padding:10px 12px;font-size:12.5px;line-height:1.8;}
+  .reseq-preview .rp-col:first-child{border-right:1px solid var(--line);}
+  .reseq-preview .rp-col h4{margin:0 0 6px;font-size:12px;color:var(--ink-faint);}
+  .reseq-preview .new-item{color:var(--sage);font-weight:700;}
+  .reseq-confirm-row{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line);background:var(--panel-2);}
+
+  .foot{text-align:center;color:var(--ink-faint);font-size:11.5px;margin-top:24px;}
+  code{background:var(--panel-2);padding:1px 6px;border-radius:5px;font-size:12px;}
+  a{color:var(--rose);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="app">
+    <div class="logo">🧴</div>
+    <div class="title">
+      <h1>Skincare AI Assistant</h1>
+      <p>วิเคราะห์สกินแคร์ จัดรูทีน และแมตช์กับผิวคุณด้วย Gemini</p>
+    </div>
+  </header>
+
+  <!-- CONFIG -->
+  <details class="config" id="cfg">
+    <summary>
+      <span class="dot" id="keyDot"></span>
+      <span>ตั้งค่า API &amp; โมเดล</span>
+      <span class="chev">▾</span>
+    </summary>
+    <div class="body">
+      <div>
+        <label class="fld">Gemini API Key</label>
+        <input type="password" id="apiKey" placeholder="วาง API key ที่นี่ (เก็บไว้ในเครื่องเท่านั้น)" autocomplete="off" />
+        <div class="hint">รับ key ฟรีได้ที่ <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> — key ถูกเก็บใน localStorage ของเบราว์เซอร์คุณเอง ไม่ส่งไปที่อื่น</div>
+      </div>
+      <div>
+        <label class="fld">เลือกโมเดล</label>
+        <select id="model">
+          <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite ⭐ — ใหม่+ถูก เร็ว vision ดี (แนะนำ)</option>
+          <option value="gemini-3.5-flash">Gemini 3.5 Flash — ฉลาดสุด frontier performance</option>
+          <option value="gemini-3.1-flash">Gemini 3.1 Flash — สมดุล เร็ว-แม่น ใช้งานทั่วไป</option>
+          <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview — reasoning ลึก วิเคราะห์ละเอียด</option>
+          <option value="gemini-3-flash-preview">Gemini 3 Flash Preview — เสถียร ใช้ได้ดี</option>
+          <option value="gemini-2.5-flash">Gemini 2.5 Flash — fallback (ยังใช้ได้)</option>
+        </select>
+      </div>
+    </div>
+  </details>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab active" data-tab="profile">👤 My Profile</button>
+    <button class="tab" data-tab="builder">🧪 Routine Builder</button>
+    <button class="tab" data-tab="scanner">🔍 Product Scanner</button>
+    <button class="tab" data-tab="suggest">✨ AI Suggestions</button>
+    <button class="tab" data-tab="export">📄 Export &amp; Reminder</button>
+  </div>
+
+  <!-- ============ TAB 1: PROFILE ============ -->
+  <section class="view active" id="view-profile">
+
+    <div class="card">
+      <h2><span class="ic">📋</span> My Routine</h2>
+      <p class="sub">รูทีนปัจจุบันของคุณ แยกเช้า/เย็น — Routine Builder จะเติมให้อัตโนมัติได้</p>
+      <div class="ampm">
+        <div class="col">
+          <h3><span class="badge am">AM</span> เช้า</h3>
+          <textarea id="routineAM" placeholder="เช่น&#10;1. Cleanser&#10;2. Vitamin C serum&#10;3. Moisturizer&#10;4. Sunscreen SPF50"></textarea>
         </div>
-        <button onclick="closeToast()" class="ml-4 text-emerald-200 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+        <div class="col">
+          <h3><span class="badge pm">PM</span> เย็น</h3>
+          <textarea id="routinePM" placeholder="เช่น&#10;1. Cleanser&#10;2. Retinol&#10;3. Moisturizer"></textarea>
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <button class="btn primary sm" onclick="saveProfile('routine')">💾 บันทึก Routine</button>
+        <span class="saved-flash" id="flash-routine">บันทึกแล้ว ✓</span>
+      </div>
     </div>
 
-    <header class="bg-slate-800 border-b border-slate-700 relative z-40 shadow-md">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div class="flex items-center space-x-3">
-                    <div class="p-2.5 bg-emerald-500 text-slate-900 rounded-xl shadow-lg shadow-emerald-500/20">
-                        <i class="fa-solid fa-sparkles text-xl"></i>
-                    </div>
-                    <div>
-                        <h1 class="text-xl font-bold text-white tracking-tight">Skincare AI Assistant <span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full ml-1">v2</span></h1>
-                        <p class="text-xs text-slate-400">Personalized Routine & Analysis by Gemini</p>
-                    </div>
-                </div>
+    <div class="card">
+      <h2><span class="ic">💧</span> Skin Profile</h2>
+      <p class="sub">สภาพผิวปัจจุบัน เช่น แห้ง / มัน / ผสม / แพ้ง่าย / มีสิว</p>
+      <textarea id="skinProfile" placeholder="เช่น ผิวผสม T-zone มัน แก้มแห้ง แพ้ง่าย มีรอยสิว"></textarea>
+      <div class="row" style="margin-top:12px;">
+        <button class="btn primary sm" onclick="saveProfile('skin')">💾 บันทึก</button>
+        <span class="saved-flash" id="flash-skin">บันทึกแล้ว ✓</span>
+      </div>
+    </div>
 
-                <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-slate-900/50 p-2 rounded-xl border border-slate-700">
-                    <div class="flex items-center space-x-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-600">
-                        <i class="fa-solid fa-layer-group text-slate-400 text-sm"></i>
-						<select id="global-model-select" class="text-sm bg-transparent border-none font-medium focus:outline-hidden text-slate-200 cursor-pointer">
-				            <option value="gemini-3.1-flash-lite">3.1 Flash-Lite · ใหม่+ถูก (แนะนำ)</option>
-				            <option value="gemini-3-flash-preview">3 Flash · แม่นสุด</option>
-				            <option value="gemini-2.5-flash-lite">2.5 Flash-Lite</option>
-				            <option value="gemini-2.5-flash">2.5 Flash</option>
-						</select>
-                    </div>
-                    <div class="relative flex items-center">
-                        <span class="absolute left-3 text-slate-400 text-xs"><i class="fa-solid fa-key"></i></span>
-                        <input type="password" id="global-api-key" placeholder="Gemini API Key..." 
-                            class="w-full sm:w-64 pl-8 pr-10 py-1.5 text-sm bg-slate-800 text-white border border-slate-600 rounded-lg focus:outline-hidden focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono placeholder-slate-500" />
-                        <button onclick="toggleApiKeyVisibility()" class="absolute right-3 text-slate-400 hover:text-slate-200 cursor-pointer">
-                            <i id="eye-icon" class="fa-solid fa-eye text-xs"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
+    <div class="card">
+      <h2><span class="ic">🎯</span> Skin Goals</h2>
+      <p class="sub">เป้าหมายของคุณ — AI ใช้ช่วยแมตช์สินค้าใน Product Scanner และ AI Suggestions</p>
+      <textarea id="skinGoals" placeholder="เช่น ลดสิว ลดรอยดำ หน้าใสขึ้น ลดริ้วรอย กระชับรูขุมขน"></textarea>
+      <div class="row" style="margin-top:12px;">
+        <button class="btn primary sm" onclick="saveProfile('goals')">💾 บันทึก</button>
+        <span class="saved-flash" id="flash-goals">บันทึกแล้ว ✓</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2><span class="ic">🚫</span> Ingredient Blacklist</h2>
+      <p class="sub">ส่วนผสมที่แพ้หรืออยากเลี่ยง — AI จะเตือนทันทีถ้าสินค้าที่สแกนมีตัวนี้</p>
+      <div class="row">
+        <input type="text" id="blacklistInput" placeholder="พิมพ์ชื่อส่วนผสม เช่น Fragrance แล้วกด Enter" style="flex:1;min-width:200px;" />
+        <button class="btn sm" onclick="addBlacklist()">+ เพิ่ม</button>
+      </div>
+      <div class="tags" id="blacklistTags"></div>
+    </div>
+
+  </section>
+
+  <!-- ============ TAB 2: BUILDER ============ -->
+  <section class="view" id="view-builder">
+    <div class="card">
+      <h2><span class="ic">🧪</span> Routine Builder</h2>
+      <p class="sub">อัปโหลดรูปครีมที่คุณมี (รูปเดียวหลายขวดก็ได้) แล้ว AI จะจัดลำดับการทาให้</p>
+
+      <div class="drop" id="dropB">
+        <div class="big">📸</div>
+        <div class="t">แตะเพื่อเลือกรูปจาก Gallery</div>
+        <div class="s">รองรับหลายรูป · JPG / PNG / WEBP</div>
+        <input type="file" id="fileB" accept="image/*" multiple hidden />
+      </div>
+      <div class="thumbs" id="thumbsB"></div>
+
+      <div class="row" style="margin-top:14px;">
+        <button class="btn primary" id="runB" onclick="buildRoutine()">✨ สร้างรูทีนให้ฉัน</button>
+        <button class="btn ghost sm" onclick="clearImgs('B')">ล้างรูป</button>
+      </div>
+      <div id="statusB"></div>
+    </div>
+
+    <div class="card" id="resultB" style="display:none;">
+      <h2><span class="ic">📝</span> รูทีนที่แนะนำ</h2>
+      <p class="sub" id="resultBnote"></p>
+      <div id="stepsB"></div>
+      <div class="row" style="margin-top:14px;">
+        <button class="btn sage" onclick="saveBuilderToRoutine()">⬇️ บันทึกเข้า My Routine</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TAB 3: SCANNER ============ -->
+  <section class="view" id="view-scanner">
+    <div class="card">
+      <h2><span class="ic">🔍</span> Product Scanner</h2>
+      <p class="sub">อัปโหลดรูปสินค้าที่สนใจ AI จะวิเคราะห์ส่วนผสม แล้วแมตช์กับโปรไฟล์ผิวของคุณ</p>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="seg" id="modeSeg">
+          <button class="on" data-mode="single" onclick="setScanMode('single')">วิเคราะห์ 1 ชิ้น</button>
+          <button data-mode="compare" onclick="setScanMode('compare')">เทียบ 2 ชิ้น</button>
         </div>
-    </header>
+      </div>
 
-    <nav class="bg-slate-800 border-b border-slate-700 relative z-30">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex space-x-1 overflow-x-auto no-scrollbar py-2">
-                <button onclick="switchTab('profile-tab')" id="btn-profile-tab" class="tab-btn active flex items-center space-x-2 px-4 py-2 text-sm font-semibold rounded-lg text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 transition-all whitespace-nowrap cursor-pointer">
-                    <i class="fa-solid fa-user-gear"></i> <span>My Profile</span>
-                </button>
-                <button onclick="switchTab('builder-tab')" id="btn-builder-tab" class="tab-btn flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-700 border border-transparent transition-all whitespace-nowrap cursor-pointer">
-                    <i class="fa-solid fa-wand-magic-sparkles"></i> <span>Routine Builder</span>
-                </button>
-                <button onclick="switchTab('scanner-tab')" id="btn-scanner-tab" class="tab-btn flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-700 border border-transparent transition-all whitespace-nowrap cursor-pointer">
-                    <i class="fa-solid fa-magnifying-glass-location"></i> <span>Product Scanner</span>
-                </button>
-                <button onclick="switchTab('suggestions-tab')" id="btn-suggestions-tab" class="tab-btn flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-700 border border-transparent transition-all whitespace-nowrap cursor-pointer">
-                    <i class="fa-solid fa-lightbulb"></i> <span>AI Suggestions</span>
-                </button>
-                <button onclick="switchTab('export-tab')" id="btn-export-tab" class="tab-btn flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-700 border border-transparent transition-all whitespace-nowrap cursor-pointer">
-                    <i class="fa-solid fa-calendar-check"></i> <span>Export & Reminders</span>
-                </button>
-            </div>
+      <div id="singleZone">
+        <div class="drop" id="dropS">
+          <div class="big">🧴</div>
+          <div class="t">แตะเพื่อเลือกรูปสินค้าจาก Gallery</div>
+          <div class="s">รูปเดียว หรือหลายมุมของสินค้าเดียวกัน</div>
+          <input type="file" id="fileS" accept="image/*" multiple hidden />
         </div>
-    </nav>
+        <div class="thumbs" id="thumbsS"></div>
+      </div>
 
-    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        
-        <div id="profile-tab" class="tab-content active space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-md flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center space-x-2 text-emerald-400 font-bold mb-3 text-sm uppercase tracking-wide">
-                            <i class="fa-solid fa-id-card"></i> <span>Skin Profile</span>
-                        </div>
-                        <div id="display-skin-profile" class="text-slate-300 bg-slate-900/50 p-3 rounded-xl border border-slate-700 text-sm min-h-[60px] whitespace-pre-wrap">ไม่ได้ระบุสภาพผิว</div>
-                        <textarea id="edit-skin-profile" class="hidden w-full p-3 bg-slate-900 border border-slate-600 text-white rounded-xl text-sm focus:outline-hidden focus:border-emerald-500 min-h-[60px]" placeholder="เช่น ผิวแห้ง, ผิวมัน, ผิวผสม, แพ้ง่าย"></textarea>
-                    </div>
-                    <div class="mt-4 pt-3 border-t border-slate-700 flex justify-end">
-                        <button id="btn-edit-skin-profile" onclick="toggleEdit('skin-profile')" class="text-xs bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-md transition-colors cursor-pointer"><i class="fa-solid fa-pen mr-1"></i> Edit</button>
-                        <button id="btn-save-skin-profile" onclick="saveData('skin-profile')" class="hidden text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-md transition-colors cursor-pointer"><i class="fa-solid fa-save mr-1"></i> Save</button>
-                    </div>
-                </div>
-
-                <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-md flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center space-x-2 text-emerald-400 font-bold mb-3 text-sm uppercase tracking-wide">
-                            <i class="fa-solid fa-bullseye"></i> <span>Skin Goals</span>
-                        </div>
-                        <div id="display-skin-goals" class="text-slate-300 bg-slate-900/50 p-3 rounded-xl border border-slate-700 text-sm min-h-[60px] whitespace-pre-wrap">ไม่ได้ระบุเป้าหมาย</div>
-                        <textarea id="edit-skin-goals" class="hidden w-full p-3 bg-slate-900 border border-slate-600 text-white rounded-xl text-sm focus:outline-hidden focus:border-emerald-500 min-h-[60px]" placeholder="เช่น ลดสิว, หน้าใส, ลด dark spot"></textarea>
-                    </div>
-                    <div class="mt-4 pt-3 border-t border-slate-700 flex justify-end">
-                        <button id="btn-edit-skin-goals" onclick="toggleEdit('skin-goals')" class="text-xs bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-md transition-colors cursor-pointer"><i class="fa-solid fa-pen mr-1"></i> Edit</button>
-                        <button id="btn-save-skin-goals" onclick="saveData('skin-goals')" class="hidden text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-md transition-colors cursor-pointer"><i class="fa-solid fa-save mr-1"></i> Save</button>
-                    </div>
-                </div>
-
-                <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-md flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center space-x-2 text-rose-400 font-bold mb-3 text-sm uppercase tracking-wide">
-                            <i class="fa-solid fa-ban"></i> <span>Ingredient Blacklist</span>
-                        </div>
-                        <div id="blacklist-tags-container" class="flex flex-wrap gap-1.5 mb-3 min-h-[40px]"></div>
-                        <div class="flex gap-2">
-                            <input type="text" id="blacklist-input" placeholder="เช่น Alcohol, Fragrance" class="w-full px-3 py-1.5 text-xs bg-slate-900 border border-slate-600 text-white rounded-lg focus:outline-hidden focus:border-rose-500">
-                            <button onclick="addBlacklistTag()" class="bg-rose-600 hover:bg-rose-500 text-white px-3 py-1.5 rounded-lg cursor-pointer"><i class="fa-solid fa-plus"></i></button>
-                        </div>
-                        <p class="text-[10px] text-slate-400 mt-2"><i class="fa-solid fa-circle-info"></i> AI จะขึ้น ⚠️ เตือนทันทีเมื่อสแกนเจอสารเหล่านี้</p>
-                    </div>
-                </div>
+      <div id="compareZone" style="display:none;">
+        <div class="grid2">
+          <div>
+            <label class="fld">สินค้า A</label>
+            <div class="drop" id="dropC1">
+              <div class="big">🅰️</div><div class="t">รูปสินค้า A</div>
+              <input type="file" id="fileC1" accept="image/*" multiple hidden />
             </div>
-
-            <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-md overflow-hidden">
-                <div class="border-b border-slate-700 bg-slate-800/50 px-6 py-4 flex justify-between items-center">
-                    <h2 class="text-base font-bold text-white flex items-center gap-2">
-                        <i class="fa-solid fa-calendar-lines text-emerald-400"></i> My Routine
-                    </h2>
-                    <div>
-                        <button id="btn-edit-routine" onclick="toggleRoutineEdit(true)" class="text-xs bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-lg cursor-pointer transition-colors"><i class="fa-solid fa-pen mr-1"></i> Edit Routine</button>
-                        <button id="btn-save-routine" onclick="saveRoutineData()" class="hidden text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg cursor-pointer transition-colors"><i class="fa-solid fa-save mr-1"></i> Save Routine</button>
-                    </div>
-                </div>
-                <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="border border-amber-500/20 bg-amber-500/5 rounded-xl p-5">
-                        <div class="flex items-center space-x-2 text-amber-400 font-bold mb-4 border-b border-amber-500/20 pb-2">
-                            <i class="fa-solid fa-sun"></i> <span>AM Routine</span>
-                        </div>
-                        <div id="am-routine-display" class="space-y-2"></div>
-                        <textarea id="am-routine-edit" class="hidden w-full h-48 p-3 font-mono text-xs bg-slate-900 border border-slate-600 text-white rounded-xl focus:border-amber-500 focus:outline-hidden" placeholder="Step 1: Cleanser&#10;Step 2: Sunscreen"></textarea>
-                    </div>
-                    <div class="border border-indigo-500/20 bg-indigo-500/5 rounded-xl p-5">
-                        <div class="flex items-center space-x-2 text-indigo-400 font-bold mb-4 border-b border-indigo-500/20 pb-2">
-                            <i class="fa-solid fa-moon"></i> <span>PM Routine</span>
-                        </div>
-                        <div id="pm-routine-display" class="space-y-2"></div>
-                        <textarea id="pm-routine-edit" class="hidden w-full h-48 p-3 font-mono text-xs bg-slate-900 border border-slate-600 text-white rounded-xl focus:border-indigo-500 focus:outline-hidden" placeholder="Step 1: Cleansing Balm&#10;Step 2: Moisturizer"></textarea>
-                    </div>
-                </div>
+            <div class="thumbs" id="thumbsC1"></div>
+          </div>
+          <div>
+            <label class="fld">สินค้า B</label>
+            <div class="drop" id="dropC2">
+              <div class="big">🅱️</div><div class="t">รูปสินค้า B</div>
+              <input type="file" id="fileC2" accept="image/*" multiple hidden />
             </div>
+            <div class="thumbs" id="thumbsC2"></div>
+          </div>
         </div>
+      </div>
 
-        <div id="builder-tab" class="tab-content space-y-6">
-            <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-md">
-                <div class="max-w-xl">
-                    <h2 class="text-lg font-bold text-white mb-2"><i class="fa-solid fa-images text-emerald-400 mr-2"></i>สร้าง Routine จากรูปภาพ (Texture-based)</h2>
-                    <p class="text-xs text-slate-400 mb-4">อัปโหลดภาพผลิตภัณฑ์ของคุณ AI จะจัดเรียงลำดับการใช้ตามความหนืด (บางเบา → เข้มข้น) พร้อมแนะนำช่วงเวลาการใช้</p>
-                    
-                    <div class="border-2 border-dashed border-slate-600 hover:border-emerald-500 rounded-xl p-6 text-center bg-slate-900/50 transition-all cursor-pointer relative" id="dropzone-builder">
-                        <input type="file" id="builder-file" multiple accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer" onchange="handleBuilderFiles(this.files)">
-                        <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-500 mb-2"></i>
-                        <p class="text-sm font-semibold text-slate-300">คลิก หรือ ลากรูปภาพสกินแคร์มาวางที่นี่</p>
-                        <p class="text-xs text-slate-500 mt-1">อัปโหลดได้หลายรูปพร้อมกัน</p>
-                    </div>
-                    <div id="builder-preview" class="grid grid-cols-5 sm:grid-cols-8 gap-2 mt-4"></div>
-                    <button onclick="generateRoutine()" class="mt-4 w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded-xl transition-all cursor-pointer text-sm flex justify-center items-center gap-2">
-                        <i class="fa-solid fa-wand-magic-sparkles"></i> สร้าง Routine ด้วย AI
-                    </button>
-                </div>
-            </div>
+      <div class="row" style="margin-top:14px;">
+        <button class="btn primary" id="runS" onclick="scanProduct()">🔬 วิเคราะห์</button>
+        <button class="btn ghost sm" onclick="clearScanImgs()">ล้างรูป</button>
+      </div>
+      <div id="statusS"></div>
+    </div>
 
-            <div id="builder-loading" class="hidden bg-slate-800 border border-slate-700 p-8 rounded-2xl shadow-md text-center">
-                <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-emerald-500 border-t-transparent mb-3"></div>
-                <p class="text-sm text-slate-300">AI กำลังวิเคราะห์เนื้อสัมผัสและสรรพคุณ (Web Search Active)...</p>
-            </div>
+    <!-- Scan result -->
+    <div class="card" id="resultS" style="display:none;">
+      <div id="scanOutput"></div>
+    </div>
 
-            <div id="builder-result" class="hidden bg-slate-800 border border-slate-700 rounded-2xl shadow-md overflow-hidden">
-                <div class="bg-slate-700/50 border-b border-slate-700 px-6 py-4 flex justify-between items-center">
-                    <span class="text-sm font-bold text-white"><i class="fa-solid fa-list-ol text-emerald-400 mr-2"></i>AI Suggested Routine Sequence</span>
-                    <button onclick="applyRoutineToProfile()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-lg cursor-pointer">
-                        <i class="fa-solid fa-download mr-1"></i> Save to My Routine
-                    </button>
-                </div>
-                <div class="p-6">
-                    <div id="builder-steps" class="space-y-4"></div>
-                </div>
-            </div>
+    <!-- Chat (shown after scan) -->
+    <div class="card" id="chatCard" style="display:none;">
+      <h2><span class="ic">💬</span> ถามต่อเกี่ยวกับสินค้านี้</h2>
+      <p class="sub">AI จะตอบโดยอิงผลการ scan + โปรไฟล์ผิวของคุณ</p>
+      <div class="chat-suggestions" id="chatSugs"></div>
+      <div class="chat-msgs" id="chatMsgs"></div>
+      <div class="chat-input-row">
+        <input type="text" id="chatInput" placeholder="พิมพ์คำถาม เช่น ทาได้ทุกวันไหม?" />
+        <button class="btn primary sm" id="chatSendBtn" onclick="sendChat()">ส่ง</button>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div class="card">
+      <h2><span class="ic">🕓</span> Scan History</h2>
+      <p class="sub">สินค้าที่เคยสแกน — แตะเพื่อดูผลเดิม</p>
+      <div id="histList"></div>
+      <div class="row" style="margin-top:8px;">
+        <button class="btn ghost sm danger" onclick="clearHistory()">ล้างประวัติทั้งหมด</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TAB 4: AI SUGGESTIONS ============ -->
+  <section class="view" id="view-suggest">
+    <div class="card">
+      <h2><span class="ic">✨</span> AI Suggestions</h2>
+      <p class="sub">AI วิเคราะห์โปรไฟล์ผิวทั้งหมดของคุณ แล้ว generate คำแนะนำเชิงรุก</p>
+      <div class="row">
+        <button class="btn primary" id="runSug" onclick="analyzeProfile()">🔍 วิเคราะห์โปรไฟล์ของฉัน</button>
+        <button class="btn ghost sm" id="refreshSug" onclick="analyzeProfile()" style="display:none;">🔄 Refresh</button>
+      </div>
+      <div id="statusSug"></div>
+      <div class="hint" style="margin-top:8px;">ต้องกรอก Skin Profile และ Skin Goals ใน My Profile ก่อนเพื่อผลลัพธ์ที่แม่นยำ</div>
+    </div>
+
+    <!-- Wishlist -->
+    <div class="card">
+      <h2><span class="ic">💖</span> Wishlist</h2>
+      <p class="sub">สินค้าที่อยากลอง — กด ♡ จากรายการแนะนำเพื่อเก็บไว้</p>
+      <div id="wishList"></div>
+      <div class="row" style="margin-top:8px;display:none;" id="wishClearRow">
+        <button class="btn sm" onclick="copyWishlist()">📋 คัดลอกรายการ</button>
+        <button class="btn ghost sm danger" onclick="clearWishlist()">ล้าง Wishlist ทั้งหมด</button>
+      </div>
+    </div>
+
+    <div id="sugOutput" style="display:none;">
+
+      <!-- Duplicates -->
+      <div class="card" id="dupCard" style="display:none;">
+        <h2><span class="ic">⚠️</span> พบสินค้าซ้ำซ้อนในรูทีน</h2>
+        <p class="sub">สินค้าเหล่านี้ทำหน้าที่เดียวกันหรือคล้ายกัน ไม่จำเป็นต้องใช้ทั้งคู่</p>
+        <div id="dupList"></div>
+      </div>
+
+      <!-- Gap Analysis -->
+      <div class="card">
+        <h2><span class="ic">🔎</span> Routine Gap Analysis</h2>
+        <p class="sub">ดูรูทีนปัจจุบันแล้วบอกว่า missing step ไหนที่ควรมี</p>
+        <div class="sug-section" id="gapList"></div>
+      </div>
+
+      <!-- Optimized Routine + Save -->
+      <div class="card" id="optRoutineCard" style="display:none;">
+        <h2><span class="ic">🗂️</span> Optimized Routine ที่แนะนำ</h2>
+        <p class="sub">หลังตัดของซ้ำและจัดลำดับใหม่ — กด Save เพื่อนำไปใช้</p>
+        <div class="reseq-preview" id="optRoutinePreview"></div>
+        <div class="row" style="margin-top:12px;" id="optRoutineActions">
+          <button class="btn sage" onclick="confirmSugRoutine()">✅ Save to My Routine</button>
+          <span class="saved-flash" id="flash-sug-routine">บันทึกแล้ว ✓</span>
         </div>
+      </div>
 
-        <div id="scanner-tab" class="tab-content space-y-6">
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <div class="lg:col-span-4 space-y-4">
-                    <div class="bg-slate-800 border border-slate-700 p-5 rounded-2xl shadow-md">
-                        <h2 class="text-base font-bold text-white mb-2"><i class="fa-solid fa-barcode text-emerald-400 mr-2"></i>Product Scanner</h2>
-                        <p class="text-xs text-slate-400 mb-4">ตรวจสอบส่วนผสม ความเข้ากันได้กับโปรไฟล์ผิว และราคากลาง</p>
-                        
-                        <div class="mb-4 flex items-center justify-between p-2.5 bg-slate-900 rounded-lg border border-slate-700">
-                            <label class="text-xs font-bold text-slate-300 cursor-pointer flex items-center gap-2">
-                                <i class="fa-solid fa-code-compare text-amber-400"></i> Compare Mode
-                            </label>
-                            <input type="checkbox" id="compare-toggle" onchange="toggleCompareMode()" class="w-4 h-4 accent-emerald-500 cursor-pointer">
-                        </div>
-
-                        <div class="space-y-3">
-                            <div class="border-2 border-dashed border-slate-600 rounded-xl p-4 text-center bg-slate-900/50 relative">
-                                <input type="file" id="scan-file-1" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer" onchange="handleScanFile(1)">
-                                <p class="text-xs font-semibold text-slate-300" id="scan-txt-1">รูปสินค้าหลัก</p>
-                                <img id="scan-img-1" class="hidden mt-2 max-h-24 mx-auto rounded-md object-contain">
-                            </div>
-                            <div id="scan-zone-2" class="hidden border-2 border-dashed border-slate-600 rounded-xl p-4 text-center bg-slate-900/50 relative">
-                                <input type="file" id="scan-file-2" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer" onchange="handleScanFile(2)">
-                                <p class="text-xs font-semibold text-slate-300" id="scan-txt-2">รูปสินค้าที่ 2 (เปรียบเทียบ)</p>
-                                <img id="scan-img-2" class="hidden mt-2 max-h-24 mx-auto rounded-md object-contain">
-                            </div>
-                        </div>
-
-                        <button onclick="runScanner()" class="mt-4 w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 rounded-xl cursor-pointer text-sm">
-                            <i class="fa-solid fa-magnifying-glass mr-1"></i> Scan Product
-                        </button>
-                    </div>
-
-                    <div class="bg-slate-800 border border-slate-700 p-5 rounded-2xl shadow-md flex flex-col max-h-[400px]">
-                        <div class="flex items-center justify-between border-b border-slate-700 pb-2 mb-3">
-                            <span class="text-xs font-bold text-slate-300 uppercase">Scan History</span>
-                            <button onclick="clearScanHistory()" class="text-[10px] text-rose-400 hover:text-rose-300 cursor-pointer"><i class="fa-solid fa-trash"></i> Clear</button>
-                        </div>
-                        <div id="scan-history-list" class="space-y-2 overflow-y-auto flex-grow custom-scrollbar pr-1"></div>
-                    </div>
-                </div>
-
-                <div class="lg:col-span-8 space-y-4">
-                    <div id="scanner-loading" class="hidden bg-slate-800 border border-slate-700 p-12 rounded-2xl shadow-md text-center">
-                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-emerald-500 border-t-transparent mb-3"></div>
-                        <p class="text-sm text-slate-300">กำลังวิเคราะห์ส่วนผสม Cross-check ข้อมูลผิว และค้นหาราคา...</p>
-                    </div>
-
-                    <div id="scanner-report" class="hidden flex flex-col bg-slate-800 border border-slate-700 rounded-2xl shadow-md overflow-hidden min-h-[500px]">
-                        <div class="bg-slate-700/30 border-b border-slate-700 px-5 py-3">
-                            <h3 class="text-sm font-bold text-white"><i class="fa-solid fa-clipboard-check text-emerald-400 mr-2"></i>Analysis Report</h3>
-                        </div>
-                        <div id="scanner-content" class="p-5 overflow-y-auto max-h-[400px] border-b border-slate-700 custom-scrollbar text-sm"></div>
-                        
-                        <div class="flex-grow flex flex-col bg-slate-900/50">
-                            <div class="px-5 py-2 border-b border-slate-700 bg-slate-800/80 text-xs font-bold text-slate-400 flex items-center gap-2">
-                                <i class="fa-solid fa-comments text-emerald-400"></i> AI Chat Assistant (ถามเพิ่มเติมเกี่ยวกับสินค้านี้)
-                            </div>
-                            <div id="chat-messages" class="flex-grow p-4 overflow-y-auto max-h-[300px] space-y-3 custom-scrollbar text-sm">
-                                <div class="text-center text-xs text-slate-500 my-4">คุณสามารถถามเจาะลึกเกี่ยวกับสินค้านี้ หรือวิธีใช้ร่วมกับ Routine ของคุณได้เลย</div>
-                            </div>
-                            <div class="p-4 bg-slate-800 border-t border-slate-700 flex gap-2">
-                                <input type="text" id="chat-input" placeholder="พิมพ์คำถามที่นี่... เช่น ทาหลัง Retinol ได้ไหม?" class="flex-grow bg-slate-900 border border-slate-600 text-white text-sm rounded-lg px-4 py-2 focus:outline-hidden focus:border-emerald-500" onkeypress="if(event.key==='Enter') sendChat()">
-                                <button onclick="sendChat()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg cursor-pointer"><i class="fa-solid fa-paper-plane"></i></button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+      <!-- Chat -->
+      <div class="card">
+        <h2><span class="ic">💬</span> ถามต่อเกี่ยวกับคำแนะนำ</h2>
+        <p class="sub">AI จะตอบโดยอิงผลวิเคราะห์ + โปรไฟล์ผิวของคุณ</p>
+        <div class="chat-suggestions" id="sugChatSugs"></div>
+        <div class="chat-msgs" id="sugChatMsgs"></div>
+        <div class="chat-input-row">
+          <input type="text" id="sugChatInput" placeholder="พิมพ์คำถาม เช่น เริ่มจากอะไรก่อนดี?" />
+          <button class="btn primary sm" id="sugChatSendBtn" onclick="sendSugChat()">ส่ง</button>
         </div>
+      </div>
 
-        <div id="suggestions-tab" class="tab-content space-y-6">
-            <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-md">
-                <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-                    <div>
-                        <h2 class="text-lg font-bold text-white flex items-center gap-2"><i class="fa-solid fa-lightbulb text-amber-400"></i> AI Routine Suggestions</h2>
-                        <p class="text-xs text-slate-400 mt-1">วิเคราะห์จุดอ่อนของรูทีนปัจจุบัน พร้อมแนะนำผลิตภัณฑ์และเทคนิคการใช้</p>
-                    </div>
-                    <button onclick="generateSuggestions()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-5 rounded-xl text-sm cursor-pointer whitespace-nowrap flex items-center gap-2">
-                        <i class="fa-solid fa-arrows-rotate"></i> Analyze My Routine
-                    </button>
-                </div>
-            </div>
+      <!-- Ingredient Synergy -->
+      <div class="card">
+        <h2><span class="ic">⚗️</span> Ingredient Synergy Tips</h2>
+        <p class="sub">ส่วนผสมไหนใช้คู่กันดี / ไม่ควรใช้คู่กัน อิงจากรูทีนของคุณ</p>
+        <div id="synList"></div>
+      </div>
 
-            <div id="sugg-loading" class="hidden bg-slate-800 border border-slate-700 p-12 rounded-2xl shadow-md text-center">
-                <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-amber-500 border-t-transparent mb-3"></div>
-                <p class="text-sm text-slate-300">AI กำลังวิเคราะห์ Gap ใน Routine และค้นหาผลิตภัณฑ์แนะนำ...</p>
-            </div>
-
-            <div id="sugg-result" class="hidden space-y-6">
-                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-md">
-                    <h3 class="text-md font-bold text-rose-400 mb-4 border-b border-slate-700 pb-2"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Routine Gap Analysis (จุดที่ขาดหายไป)</h3>
-                    <ul id="sugg-gaps" class="list-disc list-inside text-sm text-slate-300 space-y-2"></ul>
-                </div>
-                
-                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-md">
-                    <h3 class="text-md font-bold text-emerald-400 mb-4 border-b border-slate-700 pb-2"><i class="fa-solid fa-flask mr-2"></i>Ingredient Synergy Tips</h3>
-                    <ul id="sugg-tips" class="list-disc list-inside text-sm text-slate-300 space-y-2"></ul>
-                </div>
-
-                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-md">
-                    <h3 class="text-md font-bold text-amber-400 mb-4 border-b border-slate-700 pb-2"><i class="fa-solid fa-star mr-2"></i>Product Recommendations</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="sugg-products">
-                        </div>
-                </div>
-            </div>
+      <!-- Product Recommendations -->
+      <div class="card">
+        <h2><span class="ic">🛍️</span> Product Recommendations</h2>
+        <p class="sub">สินค้าที่เหมาะกับผิวและเป้าหมายของคุณ แยกตาม budget</p>
+        <div class="row" style="margin-bottom:12px;">
+          <button class="btn ghost sm" id="refreshRec" onclick="refreshRecommendations()">🔄 แนะนำชุดใหม่</button>
         </div>
+        <div id="statusRec"></div>
+        <div id="recList"></div>
+      </div>
 
-        <div id="export-tab" class="tab-content space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-md">
-                    <h2 class="text-lg font-bold text-white mb-2"><i class="fa-solid fa-file-pdf text-emerald-400 mr-2"></i>Export Routine (PDF)</h2>
-                    <p class="text-xs text-slate-400 mb-6">บันทึกตารางดูแลผิวของคุณเป็นไฟล์ PDF เพื่อพิมพ์แปะกระจกห้องน้ำ (เอกสารจะถูกจัดรูปแบบให้อ่านง่ายพื้นหลังสีสว่าง)</p>
-                    <button onclick="exportRoutineToPDF()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 rounded-xl text-sm cursor-pointer flex justify-center items-center gap-2">
-                        <i class="fa-solid fa-download"></i> Download PDF
-                    </button>
-                </div>
+    </div>
+  </section>
 
-                <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-md">
-                    <h2 class="text-lg font-bold text-white mb-2"><i class="fa-solid fa-bell text-amber-400 mr-2"></i>In-Page Routine Reminder</h2>
-                    <p class="text-xs text-slate-400 mb-4">ตั้งเวลาแจ้งเตือนให้ทำสกินแคร์รูทีน (ทำงานเมื่อคุณเปิดแท็บแอปนี้ทิ้งไว้)</p>
-                    
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-300 mb-1">AM Routine Time (เช้า)</label>
-                            <input type="time" id="time-am" class="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:border-emerald-500" onchange="saveReminders()">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-300 mb-1">PM Routine Time (เย็น)</label>
-                            <input type="time" id="time-pm" class="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:border-emerald-500" onchange="saveReminders()">
-                        </div>
-                    </div>
-                </div>
-            </div>
+  <!-- ============ TAB 5: EXPORT ============ -->
+  <section class="view" id="view-export">
+    <div class="card">
+      <h2><span class="ic">📄</span> Export Routine</h2>
+      <p class="sub">พิมพ์รูทีนเป็น PDF สวย ๆ ติดไว้หน้ากระจกห้องน้ำได้</p>
+      <div class="row">
+        <button class="btn primary sm" onclick="exportPDF()">🖨️ Export / Print PDF</button>
+      </div>
+      <div class="hint">หน้าต่าง print จะเปิดขึ้น เลือก "Save as PDF" ได้เลย</div>
+    </div>
 
-            <div class="hidden">
-                <div id="pdf-canvas" class="p-8 bg-white text-slate-900" style="width: 210mm; min-height: 297mm; font-family: 'Sarabun', sans-serif;">
-                    <div style="border-bottom: 3px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px;">
-                        <h1 style="font-size: 28px; font-weight: 800; margin: 0; color: #0f172a;">Skincare Routine Protocol</h1>
-                        <p style="font-size: 12px; color: #475569; margin: 5px 0 0 0;">AI Generated Personalized Regimen</p>
-                    </div>
-
-                    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 15px; margin-bottom: 25px; font-size: 12px; line-height: 1.6;">
-                        <div style="color: #0f172a;"><strong><span style="color:#047857;">Skin Profile:</span></strong> <span id="pdf-profile">-</span></div>
-                        <div style="color: #0f172a;"><strong><span style="color:#047857;">Goals:</span></strong> <span id="pdf-goals">-</span></div>
-                        <div style="color: #0f172a;"><strong><span style="color:#be123c;">Blacklist:</span></strong> <span id="pdf-blacklist">-</span></div>
-                    </div>
-
-                    <div style="display: flex; gap: 4%;">
-                        <div style="width: 48%; background: #fdf6e3; border: 1px solid #fde68a; border-radius: 8px; padding: 15px;">
-                            <h3 style="color: #b45309; font-size: 16px; margin-top:0; border-bottom: 1px solid #fde68a; padding-bottom: 8px;">☀️ AM Regimen</h3>
-                            <div id="pdf-am" style="font-size: 12px; margin-top: 10px;" class="space-y-3 text-slate-800"></div>
-                        </div>
-                        <div style="width: 48%; background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 8px; padding: 15px;">
-                            <h3 style="color: #4338ca; font-size: 16px; margin-top:0; border-bottom: 1px solid #ddd6fe; padding-bottom: 8px;">🌙 PM Regimen</h3>
-                            <div id="pdf-pm" style="font-size: 12px; margin-top: 10px;" class="space-y-3 text-slate-800"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <div class="card">
+      <h2><span class="ic">⏰</span> Routine Reminder</h2>
+      <p class="sub">เตือนเช้า/เย็นขณะเปิดแท็บนี้ค้างไว้ (ใช้ Notification ของเบราว์เซอร์)</p>
+      <div class="grid2">
+        <div>
+          <label class="fld">เวลาเตือนเช้า (AM)</label>
+          <input type="text" id="remAM" placeholder="07:30" />
         </div>
-    </main>
+        <div>
+          <label class="fld">เวลาเตือนเย็น (PM)</label>
+          <input type="text" id="remPM" placeholder="21:00" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <button class="btn primary sm" onclick="enableReminders()">🔔 เปิดการเตือน</button>
+        <button class="btn ghost sm" onclick="disableReminders()">ปิด</button>
+        <span class="saved-flash" id="flash-rem">ตั้งเวลาแล้ว ✓</span>
+      </div>
+      <div class="hint" id="remStatus">สถานะ: ปิดอยู่</div>
+      <div class="hint">หมายเหตุ: การเตือนทำงานเฉพาะตอนเปิดแท็บนี้ค้างไว้</div>
+    </div>
+  </section>
 
-    <script>
-        // --- State Management ---
-        let state = {
-            profile: { skinProfile: "", skinGoals: "", blacklist: [] },
-            amRoutine: [],
-            pmRoutine: [],
-            scanHistory: [],
-            reminders: { am: "", pm: "" }
-        };
+  <div class="foot">เก็บข้อมูลทั้งหมดในเครื่องคุณ (localStorage) · ไม่มีเซิร์ฟเวอร์ · Powered by Gemini</div>
+</div>
 
-        let currentActiveHistoryIndex = -1; // -1 means new scan, >=0 means viewing history item
+<div class="toast" id="toast"></div>
 
-        // Buffers
-        let builderFilesBase64 = [];
-        let scanFile1Base64 = null;
-        let scanFile2Base64 = null;
+<script>
+"use strict";
 
-        // --- Initialization ---
-        document.addEventListener("DOMContentLoaded", () => {
-            loadLocal();
-            renderProfile();
-            renderRoutine();
-            renderHistory();
-            initReminders();
-        });
+const LS = {
+  key:'sk_apikey', model:'sk_model',
+  routineAM:'sk_rAM', routinePM:'sk_rPM',
+  skin:'sk_skin', goals:'sk_goals', blacklist:'sk_blacklist',
+  history:'sk_history', remAM:'sk_remAM', remPM:'sk_remPM', remOn:'sk_remOn',
+  wishlist:'sk_wishlist'
+};
+const $ = id => document.getElementById(id);
+function get(k,def=''){ try{ const v=localStorage.getItem(k); return v===null?def:v; }catch(e){ return def; } }
+function set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
 
-        function loadLocal() {
-            try {
-                const p = localStorage.getItem("sk2_profile"); if(p) state.profile = JSON.parse(p);
-                const am = localStorage.getItem("sk2_am"); if(am) state.amRoutine = JSON.parse(am);
-                const pm = localStorage.getItem("sk2_pm"); if(pm) state.pmRoutine = JSON.parse(pm);
-                const sh = localStorage.getItem("sk2_history"); if(sh) state.scanHistory = JSON.parse(sh);
-                const rm = localStorage.getItem("sk2_reminders"); if(rm) state.reminders = JSON.parse(rm);
-                
-                const k = localStorage.getItem("sk2_key"); if(k) document.getElementById("global-api-key").value = k;
-                const m = localStorage.getItem("sk2_model"); if(m) document.getElementById("global-model-select").value = m;
+const imgs = { B:[], S:[], C1:[], C2:[] };
+let scanMode = 'single';
+let lastBuilderSteps = null;
+let lastScanData = null;       // context for chat
+let chatHistory = [];          // [{role,text}] session-only
+let pendingRoutineUpdate = null; // { am:[], pm:[] } waiting for confirm
+let pendingSugRoutine = null;   // { am:[], pm:[] } from AI Suggestions
+let sugChatHistory = [];        // AI Suggestions chat, session-only
+let lastRecItems = [];          // flat list of current recommendations (for wishlist)
 
-                document.getElementById("time-am").value = state.reminders.am;
-                document.getElementById("time-pm").value = state.reminders.pm;
-            } catch(e) { console.error(e); }
-        }
+let toastT=null;
+function toast(msg,kind=''){
+  const t=$('toast'); t.textContent=msg; t.className='toast show '+kind;
+  clearTimeout(toastT); toastT=setTimeout(()=>{ t.className='toast '+kind; },2600);
+}
 
-        function saveLocal() {
-            localStorage.setItem("sk2_profile", JSON.stringify(state.profile));
-            localStorage.setItem("sk2_am", JSON.stringify(state.amRoutine));
-            localStorage.setItem("sk2_pm", JSON.stringify(state.pmRoutine));
-            localStorage.setItem("sk2_history", JSON.stringify(state.scanHistory));
-            localStorage.setItem("sk2_reminders", JSON.stringify(state.reminders));
-            localStorage.setItem("sk2_key", document.getElementById("global-api-key").value.trim());
-            localStorage.setItem("sk2_model", document.getElementById("global-model-select").value);
-        }
+function init(){
+  $('apiKey').value = get(LS.key);
+  const m = get(LS.model,'gemini-3.1-flash-lite'); $('model').value = m;
+  if(![...$('model').options].some(o=>o.value===m)) $('model').value='gemini-3.1-flash-lite';
+  $('routineAM').value = get(LS.routineAM);
+  $('routinePM').value = get(LS.routinePM);
+  $('skinProfile').value = get(LS.skin);
+  $('skinGoals').value = get(LS.goals);
+  $('remAM').value = get(LS.remAM,'07:30');
+  $('remPM').value = get(LS.remPM,'21:00');
+  renderBlacklist();
+  renderHistory();
+  renderWishlist();
+  refreshKeyDot();
+  if(!get(LS.key)) $('cfg').open = true;
 
-        // --- UI Utils ---
-        function switchTab(id) {
-            document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
-            document.querySelectorAll(".tab-btn").forEach(btn => {
-                btn.classList.remove("text-emerald-400", "bg-emerald-500/10", "border-emerald-500/20", "active");
-                btn.classList.add("text-slate-400", "border-transparent");
-            });
-            document.getElementById(id).classList.add("active");
-            const btn = document.getElementById(`btn-${id}`);
-            if(btn) {
-                btn.classList.remove("text-slate-400", "border-transparent");
-                btn.classList.add("text-emerald-400", "bg-emerald-500/10", "border-emerald-500/20", "active");
-            }
-        }
+  $('apiKey').addEventListener('input', e=>{ set(LS.key,e.target.value.trim()); refreshKeyDot(); });
+  $('model').addEventListener('change', e=>set(LS.model,e.target.value));
+  $('blacklistInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addBlacklist(); }});
+  $('chatInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendChat(); }});
+  $('sugChatInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendSugChat(); }});
 
-        function toggleApiKeyVisibility() {
-            const el = document.getElementById("global-api-key");
-            const ic = document.getElementById("eye-icon");
-            if(el.type === "password") { el.type = "text"; ic.classList.replace("fa-eye", "fa-eye-slash"); }
-            else { el.type = "password"; ic.classList.replace("fa-eye-slash", "fa-eye"); }
-        }
+  setupTabs();
+  setupDrop('dropB','fileB','B');
+  setupDrop('dropS','fileS','S');
+  setupDrop('dropC1','fileC1','C1');
+  setupDrop('dropC2','fileC2','C2');
 
-        // --- Tab 1: Profile & Routine Logic ---
-        function renderProfile() {
-            document.getElementById("display-skin-profile").textContent = state.profile.skinProfile || "ไม่ได้ระบุสภาพผิว";
-            document.getElementById("edit-skin-profile").value = state.profile.skinProfile;
-            document.getElementById("display-skin-goals").textContent = state.profile.skinGoals || "ไม่ได้ระบุเป้าหมาย";
-            document.getElementById("edit-skin-goals").value = state.profile.skinGoals;
+  if(get(LS.remOn)==='1'){ startReminderLoop(); $('remStatus').textContent='สถานะ: เปิดอยู่'; }
+}
 
-            const box = document.getElementById("blacklist-tags-container");
-            box.innerHTML = state.profile.blacklist.length ? "" : `<span class="text-slate-500 italic text-xs">ไม่มีบัญชีดำ</span>`;
-            state.profile.blacklist.forEach((tag, i) => {
-                box.innerHTML += `<span class="inline-flex items-center px-2 py-1 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs">
-                    ${tag} <button onclick="removeBl(${i})" class="ml-1 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark text-[10px]"></i></button></span>`;
-            });
-        }
+function refreshKeyDot(){
+  $('keyDot').className = 'dot'+(get(LS.key)?' on':'');
+}
 
-        function toggleEdit(id) {
-            document.getElementById(`display-${id}`).classList.add("hidden");
-            document.getElementById(`edit-${id}`).classList.remove("hidden");
-            document.getElementById(`btn-edit-${id}`).classList.add("hidden");
-            document.getElementById(`btn-save-${id}`).classList.remove("hidden");
-        }
+function setupTabs(){
+  document.querySelectorAll('.tab').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+      btn.classList.add('active');
+      $('view-'+btn.dataset.tab).classList.add('active');
+      window.scrollTo({top:0,behavior:'smooth'});
+    });
+  });
+}
 
-        function saveData(id) {
-            const v = document.getElementById(`edit-${id}`).value.trim();
-            if(id === "skin-profile") state.profile.skinProfile = v;
-            if(id === "skin-goals") state.profile.skinGoals = v;
-            saveLocal(); renderProfile();
-            document.getElementById(`display-${id}`).classList.remove("hidden");
-            document.getElementById(`edit-${id}`).classList.add("hidden");
-            document.getElementById(`btn-edit-${id}`).classList.remove("hidden");
-            document.getElementById(`btn-save-${id}`).classList.add("hidden");
-        }
+function flash(id){ const f=$('flash-'+id); if(!f)return; f.classList.add('show'); setTimeout(()=>f.classList.remove('show'),1600); }
+function saveProfile(which){
+  if(which==='routine'){ set(LS.routineAM,$('routineAM').value); set(LS.routinePM,$('routinePM').value); flash('routine'); }
+  if(which==='skin'){ set(LS.skin,$('skinProfile').value); flash('skin'); }
+  if(which==='goals'){ set(LS.goals,$('skinGoals').value); flash('goals'); }
+  toast('บันทึกแล้ว','ok');
+}
 
-        function addBlacklistTag() {
-            const i = document.getElementById("blacklist-input");
-            const v = i.value.trim();
-            if(v && !state.profile.blacklist.includes(v)) {
-                state.profile.blacklist.push(v); saveLocal(); renderProfile(); i.value = "";
-            }
-        }
-        function removeBl(idx) { state.profile.blacklist.splice(idx, 1); saveLocal(); renderProfile(); }
+function getBlacklist(){ try{ return JSON.parse(get(LS.blacklist,'[]')); }catch(e){ return []; } }
+function setBlacklist(arr){ set(LS.blacklist, JSON.stringify(arr)); }
+function addBlacklist(){
+  const inp=$('blacklistInput'); const v=inp.value.trim();
+  if(!v) return;
+  const arr=getBlacklist();
+  if(arr.some(x=>x.toLowerCase()===v.toLowerCase())){ inp.value=''; return; }
+  arr.push(v); setBlacklist(arr); inp.value=''; renderBlacklist();
+}
+function removeBlacklist(i){ const arr=getBlacklist(); arr.splice(i,1); setBlacklist(arr); renderBlacklist(); }
+function renderBlacklist(){
+  const arr=getBlacklist(); const c=$('blacklistTags');
+  if(!arr.length){ c.innerHTML='<span class="hint">ยังไม่มีรายการ</span>'; return; }
+  c.innerHTML = arr.map((t,i)=>`<span class="pill">${esc(t)} <span class="x" onclick="removeBlacklist(${i})">✕</span></span>`).join('');
+}
 
-        function renderRoutine() {
-            const am = document.getElementById("am-routine-display");
-            const pm = document.getElementById("pm-routine-display");
-            
-            const html = (arr) => arr.length ? arr.map((item, i) => `
-                <div class="bg-slate-900/50 p-3 rounded-lg border border-slate-700 flex gap-3 text-xs">
-                    <div class="bg-slate-700 text-white rounded w-5 h-5 flex items-center justify-center shrink-0 font-bold">${i+1}</div>
-                    <div><div class="font-bold text-white">${item.name}</div>${item.note ? `<div class="text-slate-400 mt-0.5">${item.note}</div>`:''}</div>
-                </div>`).join("") : `<div class="text-xs text-slate-500 italic">No routine set.</div>`;
+function setupDrop(dropId,inputId,bufKey){
+  const drop=$(dropId), input=$(inputId);
+  drop.addEventListener('click',()=>input.click());
+  input.addEventListener('change',e=>handleFiles(e.target.files,bufKey));
+  ['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+  ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+  drop.addEventListener('drop',e=>{ if(e.dataTransfer&&e.dataTransfer.files) handleFiles(e.dataTransfer.files,bufKey); });
+}
+function handleFiles(fileList,bufKey){
+  const files=[...fileList].filter(f=>f.type.startsWith('image/'));
+  if(!files.length) return;
+  let pending=files.length;
+  files.forEach(f=>{
+    const reader=new FileReader();
+    reader.onload=()=>{
+      compressImage(reader.result, dataUrl=>{
+        imgs[bufKey].push(dataUrl);
+        pending--; renderThumbs(bufKey);
+      });
+    };
+    reader.onerror=()=>{ pending--; toast('อ่านไฟล์ไม่สำเร็จ','bad'); };
+    reader.readAsDataURL(f);
+  });
+}
+function compressImage(dataUrl,cb){
+  const img=new Image();
+  img.onload=()=>{
+    const max=1024; let {width:w,height:h}=img;
+    if(w>max||h>max){ const r=Math.min(max/w,max/h); w=Math.round(w*r); h=Math.round(h*r); }
+    const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+    cv.getContext('2d').drawImage(img,0,0,w,h);
+    try{ cb(cv.toDataURL('image/jpeg',0.82)); }catch(e){ cb(dataUrl); }
+  };
+  img.onerror=()=>cb(dataUrl);
+  img.src=dataUrl;
+}
+function renderThumbs(bufKey){
+  const c=$('thumbs'+bufKey); if(!c) return;
+  c.innerHTML = imgs[bufKey].map((d,i)=>
+    `<div class="thumb"><img src="${d}" alt=""><button class="rm" onclick="removeImg('${bufKey}',${i})">✕</button></div>`
+  ).join('');
+}
+function removeImg(bufKey,i){ imgs[bufKey].splice(i,1); renderThumbs(bufKey); }
+function clearImgs(bufKey){ imgs[bufKey]=[]; renderThumbs(bufKey); }
+function clearScanImgs(){ imgs.S=[];imgs.C1=[];imgs.C2=[]; renderThumbs('S');renderThumbs('C1');renderThumbs('C2'); }
 
-            am.innerHTML = html(state.amRoutine);
-            pm.innerHTML = html(state.pmRoutine);
+function setScanMode(m){
+  scanMode=m;
+  document.querySelectorAll('#modeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));
+  $('singleZone').style.display = m==='single'?'block':'none';
+  $('compareZone').style.display = m==='compare'?'block':'none';
+}
 
-            document.getElementById("am-routine-edit").value = state.amRoutine.map((r,i)=>`Step ${i+1}: ${r.name} ${r.note?`[${r.note}]`:''}`).join("\n");
-            document.getElementById("pm-routine-edit").value = state.pmRoutine.map((r,i)=>`Step ${i+1}: ${r.name} ${r.note?`[${r.note}]`:''}`).join("\n");
-        }
+function dataUrlToInline(dataUrl){
+  const m=dataUrl.match(/^data:(.*?);base64,(.*)$/);
+  if(!m) return null;
+  return { inline_data:{ mime_type:m[1], data:m[2] } };
+}
 
-        function toggleRoutineEdit(show) {
-            const ids = ["am-routine-display", "pm-routine-display", "am-routine-edit", "pm-routine-edit", "btn-edit-routine", "btn-save-routine"];
-            ids.forEach(id => document.getElementById(id).classList.toggle("hidden"));
-        }
+async function callGemini(promptText, imageBufKeys){
+  const apiKey=get(LS.key);
+  if(!apiKey) throw new Error('ยังไม่ได้ใส่ API Key — เปิด "ตั้งค่า API" ด้านบนก่อนนะครับ');
+  const model=get(LS.model,'gemini-3.1-flash-lite');
 
-        function saveRoutineData() {
-            const p = (txt) => txt.split("\n").map(l => {
-                const m = l.replace(/^Step\s*\d+\s*:\s*/i, "").trim().match(/(.*?)(?:\[(.*?)\])?$/);
-                return m && m[1].trim() ? { name: m[1].trim(), note: (m[2]||"").trim() } : null;
-            }).filter(Boolean);
-            state.amRoutine = p(document.getElementById("am-routine-edit").value);
-            state.pmRoutine = p(document.getElementById("pm-routine-edit").value);
-            saveLocal(); renderRoutine(); toggleRoutineEdit(false);
-        }
+  const parts=[{ text: promptText }];
+  (imageBufKeys||[]).forEach(k=>{
+    imgs[k].forEach(d=>{ const p=dataUrlToInline(d); if(p) parts.push(p); });
+  });
 
-        // --- Core API Base ---
-        async function callGemini(prompt, images = [], tools = false, chatHistory = []) {
-            const k = document.getElementById("global-api-key").value.trim();
-            const m = document.getElementById("global-model-select").value;
-            if(!k) throw new Error("Missing API Key");
+  const body={ contents:[{ role:'user', parts }] };
 
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${k}`;
-            
-            // Build contents array for multi-turn chat if history exists, otherwise single turn
-            let contents = [];
-            if (chatHistory && chatHistory.length > 0) {
-                contents = [...chatHistory];
-            }
-            
-            // Current message
-            let parts = [{ text: prompt }];
-            images.forEach(img => parts.push({ inlineData: { mimeType: img.mimeType, data: img.base64Data } }));
-            contents.push({ role: "user", parts: parts });
+  const url=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
-            let payload = { contents: contents };
-            if(tools) payload.tools = [{ googleSearch: {} }];
+  let res;
+  try{ res=await fetch(url,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }); }
+  catch(e){ throw new Error('เชื่อมต่อเครือข่ายไม่สำเร็จ ลองใหม่อีกครั้ง'); }
 
-            const res = await fetch(url, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(payload) });
-            const j = await res.json();
-            if(!res.ok) throw new Error(j?.error?.message || "API Error");
-            return j.candidates[0].content.parts[0].text;
-        }
-        
-        function getJson(str) { return JSON.parse(str.replace(/^```json/i, "").replace(/```$/, "").trim()); }
-        function fileToBase64(file) {
-            return new Promise((res, rej) => {
-                const r = new FileReader(); r.readAsDataURL(file);
-                r.onload = () => res({ mimeType: file.type, base64Data: r.result.split(",")[1], url: r.result });
-                r.onerror = e => rej(e);
-            });
-        }
+  let json;
+  try{ json=await res.json(); }catch(e){ throw new Error('อ่านผลลัพธ์จากเซิร์ฟเวอร์ไม่สำเร็จ'); }
 
-        // --- Tab 2: Builder ---
-        let lastBuilderData = [];
-        async function handleBuilderFiles(files) {
-            const grid = document.getElementById("builder-preview"); grid.innerHTML = ""; builderFilesBase64 = [];
-            for(let f of files) {
-                const d = await fileToBase64(f); builderFilesBase64.push(d);
-                grid.innerHTML += `<div class="border border-slate-600 rounded overflow-hidden aspect-square"><img src="${d.url}" class="w-full h-full object-cover"></div>`;
-            }
-        }
+  if(!res.ok){
+    const msg=(json&&json.error&&json.error.message)||('HTTP '+res.status);
+    throw new Error('Gemini error: '+msg);
+  }
+  const cand=json.candidates&&json.candidates[0];
+  if(!cand) throw new Error('ไม่มีผลลัพธ์กลับมา (อาจถูกบล็อกโดย safety filter)');
+  if(cand.finishReason==='SAFETY') throw new Error('ผลลัพธ์ถูกบล็อกโดย safety filter');
+  const out=(cand.content&&cand.content.parts||[]).map(p=>p.text||'').join('');
+  if(!out.trim()) throw new Error('ผลลัพธ์ว่างเปล่า ลองใหม่อีกครั้ง');
+  return out;
+}
 
-        async function generateRoutine() {
-            if(!builderFilesBase64.length) return alert("Upload images first.");
-            document.getElementById("builder-loading").classList.remove("hidden");
-            document.getElementById("builder-result").classList.add("hidden");
-const prompt = `วิเคราะห์ผลิตภัณฑ์สกินแคร์ในรูปภาพและจัดเรียงลำดับการใช้ โดยใช้ "กฎเหล็กการทาสกินแคร์" ดังต่อไปนี้:
-1. ผลิตภัณฑ์ทำความสะอาด (Cleanser/Remover) ต้องอยู่ลำดับแรกสุดเสมอ
-2. โทนเนอร์ และ น้ำตบ (Essence)
-3. เซรั่ม หรือ ทรีตเมนต์ (หากมีหลายตัว ให้เรียงตามเนื้อสัมผัส เบาบางสุดไปข้นสุด)
-4. ครีมบำรุงรอบดวงตา (Eye Cream)
-5. มอยส์เจอไรเซอร์ หรือ ครีมบำรุงผิวหน้า
-6. **กฎเหล็กที่สำคัญที่สุด**: ครีมกันแดด (Sunscreen/SPF) ต้องอยู่ "ลำดับสุดท้ายเสมอ" สำหรับการทาช่วงเช้า (AM) ไม่ว่าเนื้อสัมผัสของกันแดดนั้นจะเหลวแค่ไหนก็ตาม ห้ามทากันแดดก่อนครีมบำรุงเด็ดขาด
+async function callGeminiChat(messages){
+  const apiKey=get(LS.key);
+  if(!apiKey) throw new Error('ยังไม่ได้ใส่ API Key');
+  const model=get(LS.model,'gemini-3.1-flash-lite');
 
-กรุณาตอบรายละเอียดเป็น "ภาษาไทย" ทั้งหมด (ยกเว้นชื่อแบรนด์หรือสารสกัดภาษาอังกฤษ) 
-และส่งคืนเป็น JSON Array รูปแบบนี้เท่านั้น ห้ามพิมพ์ข้อความอื่นนอกเหนือจากนี้: 
-{ "steps": [ {"name":"ชื่อสินค้า", "texture":"เนื้อสัมผัส", "benefit":"สรรพคุณ", "reason":"เหตุผลที่จัดไว้ลำดับนี้ (เช่น เป็นกันแดดจึงต้องทาเป็นขั้นตอนสุดท้ายเพื่อปกป้องผิว)", "time":"AM|PM|Both"} ] }`;
-			
-			try {
-                const res = await callGemini(prompt, builderFilesBase64, false);
-                const data = getJson(res).steps;
-                lastBuilderData = data;
-                
-                const target = document.getElementById("builder-steps"); target.innerHTML = "";
-                data.forEach((s, i) => {
-                    target.innerHTML += `
-                        <div class="bg-slate-900/50 p-4 border border-slate-700 rounded-xl relative">
-                            <div class="absolute -left-3 top-4 bg-emerald-600 w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold">${i+1}</div>
-                            <div class="ml-2">
-                                <h4 class="font-bold text-white text-sm">${s.name} <span class="ml-2 text-[10px] px-2 py-0.5 rounded bg-slate-700 text-amber-300">${s.time}</span></h4>
-                                <div class="text-xs text-slate-400 mt-1"><strong>Texture:</strong> ${s.texture}</div>
-                                <div class="text-xs text-emerald-400 mt-1"><strong>Benefit:</strong> ${s.benefit}</div>
-                                <div class="text-xs text-slate-400 mt-1"><strong>Why here:</strong> ${s.reason}</div>
-                            </div>
-                        </div>`;
-                });
-                document.getElementById("builder-result").classList.remove("hidden");
-            } catch(e) { alert("Error: " + e.message); }
-            document.getElementById("builder-loading").classList.add("hidden");
-        }
+  const contents = messages.map(m=>({ role: m.role==='ai'?'model':'user', parts:[{text:m.text}] }));
+  const body={ contents };
 
-        function applyRoutineToProfile() {
-            if(!lastBuilderData.length) return;
-            state.amRoutine = []; state.pmRoutine = [];
-            lastBuilderData.forEach(s => {
-                const obj = { name: s.name, note: s.benefit };
-                if(s.time === "AM" || s.time === "Both") state.amRoutine.push({...obj});
-                if(s.time === "PM" || s.time === "Both") state.pmRoutine.push({...obj});
-            });
-            saveLocal(); renderRoutine(); switchTab('profile-tab');
-        }
+  const url=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
-        // --- Tab 3: Scanner & Chat ---
-        async function handleScanFile(slot) {
-            const el = document.getElementById(`scan-file-${slot}`);
-            if(el.files[0]) {
-                const d = await fileToBase64(el.files[0]);
-                if(slot===1) scanFile1Base64 = d; else scanFile2Base64 = d;
-                document.getElementById(`scan-img-${slot}`).src = d.url;
-                document.getElementById(`scan-img-${slot}`).classList.remove("hidden");
-                document.getElementById(`scan-txt-${slot}`).classList.add("hidden");
-            }
-        }
-        function toggleCompareMode() {
-            const isC = document.getElementById("compare-toggle").checked;
-            document.getElementById("scan-zone-2").classList.toggle("hidden", !isC);
-            if(!isC) { scanFile2Base64 = null; document.getElementById("scan-img-2").classList.add("hidden"); document.getElementById("scan-txt-2").classList.remove("hidden"); }
-        }
+  let res;
+  try{ res=await fetch(url,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }); }
+  catch(e){ throw new Error('เชื่อมต่อเครือข่ายไม่สำเร็จ'); }
 
-        async function runScanner() {
-            if(!scanFile1Base64) return alert("Upload at least product 1.");
-            const isC = document.getElementById("compare-toggle").checked;
-            if(isC && !scanFile2Base64) return alert("Upload product 2 for comparison.");
+  let json;
+  try{ json=await res.json(); }catch(e){ throw new Error('อ่านผลลัพธ์ไม่สำเร็จ'); }
 
-            document.getElementById("scanner-loading").classList.remove("hidden");
-            document.getElementById("scanner-report").classList.add("hidden");
+  if(!res.ok){
+    const msg=(json&&json.error&&json.error.message)||('HTTP '+res.status);
+    throw new Error('Gemini error: '+msg);
+  }
+  const cand=json.candidates&&json.candidates[0];
+  if(!cand) throw new Error('ไม่มีผลลัพธ์กลับมา');
+  const out=(cand.content&&cand.content.parts||[]).map(p=>p.text||'').join('');
+  if(!out.trim()) throw new Error('ผลลัพธ์ว่างเปล่า');
+  return out;
+}
 
-            const prof = `Skin: ${state.profile.skinProfile}, Goals: ${state.profile.skinGoals}, Blacklist: ${state.profile.blacklist.join(",")}`;
-            let prompt = isC ? 
-                `Compare 2 skincare products images based on user profile: [${prof}]. Provide JSON ONLY: {"mode":"compare", "p1":{"name":"..", "price":"..", "key":".."}, "p2":{"name":"..", "price":"..", "key":".."}, "verdict":"..", "blacklistAlert":".."}` :
-                `Analyze product image based on user profile: [${prof}]. Provide JSON ONLY: {"mode":"single", "name":"..", "price":"..", "ingredients":"..", "suitability":"..", "conflict":"..", "blacklistAlert":".."}`;
+function parseJSON(text){
+  let t=text.trim();
+  t=t.replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
+  const firstObj=t.indexOf('{'), firstArr=t.indexOf('[');
+  let start=-1, openCh='{', closeCh='}';
+  if(firstArr!==-1 && (firstObj===-1 || firstArr<firstObj)){ start=firstArr; openCh='['; closeCh=']'; }
+  else start=firstObj;
+  if(start===-1) throw new Error('ไม่พบ JSON ในผลลัพธ์');
+  let depth=0, end=-1;
+  for(let i=start;i<t.length;i++){
+    if(t[i]===openCh) depth++;
+    else if(t[i]===closeCh){ depth--; if(depth===0){ end=i; break; } }
+  }
+  if(end===-1) throw new Error('JSON ไม่สมบูรณ์');
+  return JSON.parse(t.slice(start,end+1));
+}
 
-            try {
-                const imgs = [scanFile1Base64]; if(isC) imgs.push(scanFile2Base64);
-                const res = await callGemini(prompt, imgs, false);
-                const data = getJson(res);
-                
-                // Save to history
-                const hItem = {
-                    id: Date.now(),
-                    title: isC ? `Compare: ${data.p1?.name||'A'} vs ${data.p2?.name||'B'}` : data.name,
-                    date: new Date().toLocaleString(),
-                    data: data,
-                    chatHistory: [] // initialize empty chat history for this session
-                };
-                state.scanHistory.unshift(hItem);
-                if(state.scanHistory.length > 20) state.scanHistory.pop();
-                saveLocal();
-                
-                currentActiveHistoryIndex = 0; // Point to the newest
-                renderHistory();
-                openReportView(0);
-            } catch(e) { alert("Scan Error: " + e.message); }
-            document.getElementById("scanner-loading").classList.add("hidden");
-        }
+/* ── Tab 2: Builder ── */
+async function buildRoutine(){
+  if(!imgs.B.length){ toast('กรุณาอัปโหลดรูปครีมก่อน','bad'); return; }
+  const btn=$('runB'); btn.disabled=true;
+  $('statusB').innerHTML='<div class="loading"><div class="spin"></div> กำลังวิเคราะห์รูปและจัดลำดับรูทีน…</div>';
+  $('resultB').style.display='none';
 
-        function renderHistory() {
-            const c = document.getElementById("scan-history-list"); c.innerHTML = "";
-            state.scanHistory.forEach((h, i) => {
-                c.innerHTML += `<div onclick="openReportView(${i})" class="p-2.5 bg-slate-900 border border-slate-700 hover:border-emerald-500 rounded-lg cursor-pointer transition-colors text-xs">
-                    <div class="font-bold text-slate-200 truncate">${h.title}</div><div class="text-slate-500 mt-0.5 text-[10px]">${h.date}</div>
-                </div>`;
-            });
-        }
+  const skin=get(LS.skin), goals=get(LS.goals);
+  const prompt=
+`คุณคือผู้เชี่ยวชาญด้านสกินแคร์ ดูรูปผลิตภัณฑ์ที่แนบมาทั้งหมด (อาจมีหลายชิ้นในรูปเดียวหรือหลายรูป)
+ระบุผลิตภัณฑ์แต่ละชิ้น ถ้าไม่แน่ใจชื่อให้ใช้ web search ช่วย แล้วจัดลำดับการทาที่ถูกต้อง
+(หลักการ: ทำความสะอาด → toner/essence → serum → eye cream → moisturizer → sunscreen เฉพาะเช้า; เนื้อบางไปเนื้อหนัก)
 
-        function clearScanHistory() { state.scanHistory = []; currentActiveHistoryIndex = -1; saveLocal(); renderHistory(); document.getElementById("scanner-report").classList.add("hidden"); }
+สภาพผิวผู้ใช้: ${skin||'(ไม่ได้ระบุ)'}
+เป้าหมายผิว: ${goals||'(ไม่ได้ระบุ)'}
 
-        function openReportView(index) {
-            currentActiveHistoryIndex = index;
-            const h = state.scanHistory[index];
-            const d = h.data;
-            const t = document.getElementById("scanner-content");
-            
-            if(d.mode === "single") {
-                t.innerHTML = `
-                    ${d.blacklistAlert && d.blacklistAlert !== "-" && d.blacklistAlert !== "None" ? `<div class="bg-rose-500/20 border border-rose-500 text-rose-300 p-3 rounded-lg text-xs font-bold mb-4">⚠️ Blacklist Alert: ${d.blacklistAlert}</div>`:''}
-                    <div class="grid grid-cols-2 gap-4 mb-4">
-                        <div class="bg-slate-900 p-3 rounded-lg"><div class="text-[10px] text-slate-500 uppercase">Product</div><div class="font-bold text-white text-sm">${d.name}</div></div>
-                        <div class="bg-slate-900 p-3 rounded-lg"><div class="text-[10px] text-slate-500 uppercase">Est. Price</div><div class="font-bold text-emerald-400 text-sm">${d.price}</div></div>
-                    </div>
-                    <div class="space-y-3 text-xs">
-                        <div><strong class="text-slate-300">Key Ingredients:</strong> <span class="text-slate-400">${d.ingredients}</span></div>
-                        <div><strong class="text-slate-300">Suitability:</strong> <span class="text-slate-400">${d.suitability}</span></div>
-                        <div><strong class="text-slate-300">Conflict Warning:</strong> <span class="text-amber-400">${d.conflict}</span></div>
-                    </div>`;
-            } else {
-                t.innerHTML = `
-                    <div class="grid grid-cols-2 gap-4 mb-4 text-xs">
-                        <div class="bg-slate-900 p-3 rounded-lg border border-slate-700"><div class="font-bold text-white">${d.p1?.name}</div><div class="text-emerald-400 mt-1">${d.p1?.price}</div><div class="text-slate-400 mt-1">${d.p1?.key}</div></div>
-                        <div class="bg-slate-900 p-3 rounded-lg border border-slate-700"><div class="font-bold text-white">${d.p2?.name}</div><div class="text-emerald-400 mt-1">${d.p2?.price}</div><div class="text-slate-400 mt-1">${d.p2?.key}</div></div>
-                    </div>
-                    ${d.blacklistAlert && d.blacklistAlert !== "-" ? `<div class="bg-rose-500/20 text-rose-300 p-2 rounded text-xs mb-3">⚠️ ${d.blacklistAlert}</div>`:''}
-                    <div class="bg-emerald-900/20 border border-emerald-500/30 p-3 rounded-lg text-xs"><strong class="text-emerald-400 block mb-1">Verdict:</strong><span class="text-emerald-100">${d.verdict}</span></div>
-                `;
-            }
-
-            // Render Chat
-            renderChatHistory();
-            document.getElementById("scanner-report").classList.remove("hidden");
-        }
-
-        // Chat logic tied to history item
-        function renderChatHistory() {
-            const box = document.getElementById("chat-messages");
-            const history = state.scanHistory[currentActiveHistoryIndex].chatHistory || [];
-            
-            if(history.length === 0) {
-                box.innerHTML = `<div class="text-center text-xs text-slate-500 my-4">เริ่มสนทนากับ AI เกี่ยวกับสินค้านี้ได้เลย!</div>`;
-                return;
-            }
-            
-            box.innerHTML = history.map(m => `
-                <div class="flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}">
-                    <div class="max-w-[80%] p-3 rounded-xl text-xs ${m.role === 'user' ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-200'}">
-                        ${m.parts[0].text}
-                    </div>
-                </div>
-            `).join("");
-            box.scrollTop = box.scrollHeight;
-        }
-
-        async function sendChat() {
-            const input = document.getElementById("chat-input");
-            const msg = input.value.trim();
-            if(!msg || currentActiveHistoryIndex < 0) return;
-            
-            input.value = "";
-            const hItem = state.scanHistory[currentActiveHistoryIndex];
-            if(!hItem.chatHistory) hItem.chatHistory = [];
-            
-            // Add user message to UI immediately
-            hItem.chatHistory.push({ role: "user", parts: [{ text: msg }] });
-            renderChatHistory();
-
-            // Construct Contextual Prompt overlaying the actual history
-            const sysPrompt = `System context: The user is asking about a skincare product they just scanned. Here is the scan result JSON: ${JSON.stringify(hItem.data)}. User profile: Skin=${state.profile.skinProfile}, Goals=${state.profile.skinGoals}, Blacklist=${state.profile.blacklist.join(",")}. Current Routine AM: ${JSON.stringify(state.amRoutine)}. Current Routine PM: ${JSON.stringify(state.pmRoutine)}. Please answer concisely and helpfully.`;
-
-            // Prepare history for Gemini API
-            let promptToSend = msg;
-            if(hItem.chatHistory.length === 1) { // First message
-                promptToSend = `${sysPrompt}\n\nUser Question: ${msg}`;
-            }
-
-            // Exclude the newly added user message from the history array we pass (since we send it as current)
-            const historyForApi = hItem.chatHistory.slice(0, -1);
-
-            try {
-                // Show typing indicator
-                const box = document.getElementById("chat-messages");
-                const typingId = "typing-" + Date.now();
-                box.innerHTML += `<div id="${typingId}" class="flex justify-start"><div class="max-w-[80%] p-3 rounded-xl text-xs bg-slate-700 text-slate-400 italic">AI is typing...</div></div>`;
-                box.scrollTop = box.scrollHeight;
-
-                const res = await callGemini(promptToSend, [], false, historyForApi);
-                
-                // Add model response
-                hItem.chatHistory.push({ role: "model", parts: [{ text: res }] });
-                saveLocal();
-                renderChatHistory();
-            } catch(e) { 
-                alert("Chat Error: " + e.message); 
-                hItem.chatHistory.pop(); // remove failed msg
-                renderChatHistory();
-            }
-        }
-
-        // --- Tab 4: AI Suggestions ---
-        async function generateSuggestions() {
-    const btn = document.getElementById("sugg-loading");
-    const resBox = document.getElementById("sugg-result");
-    btn.classList.remove("hidden"); resBox.classList.add("hidden");
-
-    // ปรับปรุง Prompt ให้วิเคราะห์การทับซ้อน สิ่งที่ควรเอาออก และเหตุผลอย่างละเอียด
-    const prompt = `วิเคราะห์รูทีนสกินแคร์และโปรไฟล์ของผู้ใช้ Profile: Skin=${state.profile.skinProfile}, Goals=${state.profile.skinGoals}. 
-Routine AM: ${JSON.stringify(state.amRoutine)}. Routine PM: ${JSON.stringify(state.pmRoutine)}.
-
-จงตรวจสอบและวิเคราะห์อย่างละเอียดว่า:
-1. มีผลิตภัณฑ์หรือส่วนผสมใดที่ทับซ้อนกัน (Overlapping) เกินความจำเป็น หรือสูตรชนกันจนเสี่ยงระคายเคืองผิว
-2. ผลิตภัณฑ์ชิ้นใดในรูทีนปัจจุบันที่ควรเอาออก (Removals) พร้อมระบุสาเหตุที่ชัดเจน
-
-สร้างคำแนะนำเชิงรุกเป็น "ภาษาไทย" ทั้งหมด และส่งคืนในรูปแบบ JSON นี้เท่านั้น ห้ามมีข้อความอื่นนอกเหนือจากโครงสร้างปีกกา JSON เด็ดขาด:
+ตอบกลับเป็น JSON เท่านั้น ห้ามมีข้อความอื่น:
 {
-  "gaps": ["ขั้นตอนที่ขาดหายไป 1", "ขั้นตอนที่ขาดหายไป 2"],
-  "overlaps": ["สิ่งที่ทับซ้อนกัน หรือส่วนผสมที่ชนกันข้อที่ 1", "สิ่งที่ทับซ้อนกัน หรือส่วนผสมที่ชนกันข้อที่ 2"],
-  "removals": [
-    {"name": "ชื่อผลิตภัณฑ์ หรือส่วนผสมที่แนะนำให้เอาออกชิ้นที่ 1", "reason": "สาเหตุที่ควรเอาออกเพราะอะไร เช่น มีสารออกฤทธิ์ซ้ำซ้อน หรือทำลายปราการผิว"}
-  ],
-  "tips": ["ทริคการจับคู่ส่วนผสม 1", "ข้อควรระวัง 2"],
-  "products": [
-    {"tier":"Budget (<500฿)", "name":"Product A", "price":"xxx ฿", "reason":"เหตุผลที่แนะนำ (ภาษาไทย)"},
-    {"tier":"Mid (500-1500฿)", "name":"Product B", "price":"xxx ฿", "reason":"เหตุผลที่แนะนำ (ภาษาไทย)"},
-    {"tier":"Premium (>1500฿)", "name":"Product C", "price":"xxx ฿", "reason":"เหตุผลที่แนะนำ (ภาษาไทย)"}
+  "note": "สรุปสั้น ๆ ภาพรวมรูทีน 1-2 ประโยค ภาษาไทย",
+  "steps": [
+    { "order": 1, "name": "ชื่อผลิตภัณฑ์", "when": "AM" | "PM" | "Both", "why": "เหตุผลที่ทาลำดับนี้", "benefit": "ประโยชน์หลัก" }
   ]
 }`;
 
-    try {
-        const res = await callGemini(prompt, [], false);
-        const data = getJson(res);
+  try{
+    const out=await callGemini(prompt,['B']);
+    const data=parseJSON(out);
+    if(!data.steps||!Array.isArray(data.steps)||!data.steps.length) throw new Error('ไม่พบขั้นตอนในผลลัพธ์');
+    lastBuilderSteps=data.steps;
+    renderBuilderResult(data);
+    $('statusB').innerHTML='';
+  }catch(err){
+    $('statusB').innerHTML=`<div class="errbox">⚠️ ${esc(err.message)}</div>`;
+  }finally{ btn.disabled=false; }
+}
 
-        // 1. จัดการแสดงผลส่วนข้อบกพร่อง รูทีนทับซ้อน และสินค้าที่ควรเอาออก
-        let gapsHtml = "";
-        
-        if (data.gaps && data.gaps.length > 0) {
-            gapsHtml += `<div class="font-bold text-slate-200 mb-1 flex items-center gap-2"><i class="fa-solid fa-circle-minus text-slate-400"></i> ขั้นตอนที่ขาดหายไป (Missing Gaps):</div>`;
-            gapsHtml += data.gaps.map(g => `<li class="mb-1 ml-4 list-disc">${g}</li>`).join("");
-        }
+function whenBadge(w){
+  const v=(w||'').toLowerCase();
+  if(v==='am') return '<span class="badge am">AM เช้า</span>';
+  if(v==='pm') return '<span class="badge pm">PM เย็น</span>';
+  return '<span class="badge both">AM+PM</span>';
+}
+function renderBuilderResult(data){
+  $('resultBnote').textContent=data.note||'';
+  $('stepsB').innerHTML=data.steps.map((s,i)=>`
+    <div class="step">
+      <div class="head">
+        <span class="num">${s.order||i+1}</span>
+        <span class="nm">${esc(s.name||'-')}</span>
+        ${whenBadge(s.when)}
+      </div>
+      ${s.why?`<div class="meta">🔸 <b>ทำไมลำดับนี้:</b> ${esc(s.why)}</div>`:''}
+      ${s.benefit?`<div class="meta">✨ <b>ประโยชน์:</b> ${esc(s.benefit)}</div>`:''}
+    </div>`).join('');
+  $('resultB').style.display='block';
+}
+function saveBuilderToRoutine(){
+  if(!lastBuilderSteps){ toast('ยังไม่มีรูทีนให้บันทึก','bad'); return; }
+  const am=[], pm=[];
+  lastBuilderSteps.forEach(s=>{
+    const w=(s.when||'').toLowerCase();
+    if(w==='am'||w==='both') am.push(s.name);
+    if(w==='pm'||w==='both') pm.push(s.name);
+  });
+  const fmt=arr=>arr.map((l,i)=>`${i+1}. ${l}`).join('\n');
+  $('routineAM').value=fmt(am);
+  $('routinePM').value=fmt(pm);
+  set(LS.routineAM,$('routineAM').value);
+  set(LS.routinePM,$('routinePM').value);
+  toast('บันทึกเข้า My Routine แล้ว ✓','ok');
+  document.querySelector('.tab[data-tab="profile"]').click();
+}
 
-        // แทรกการแสดงผลเรื่องการทับซ้อน (Overlaps)
-        if (data.overlaps && data.overlaps.length > 0) {
-            gapsHtml += `<div class="mt-4 pt-3 border-t border-slate-700/50 font-bold text-amber-400 flex items-center gap-2"><i class="fa-solid fa-layer-group"></i> ผลิตภัณฑ์/ส่วนผสมที่ทับซ้อนกัน (Overlapping):</div>`;
-            gapsHtml += data.overlaps.map(o => `<li class="mb-1 ml-4 list-disc text-amber-200">${o}</li>`).join("");
-        } else {
-            gapsHtml += `<div class="mt-4 pt-3 border-t border-slate-700/50 text-xs text-slate-400 italic">✅ ไม่พบส่วนผสมที่ทับซ้อนกันในรูทีนปัจจุบัน</div>`;
-        }
+/* ── Tab 3: Scanner ── */
+async function scanProduct(){
+  const btn=$('runS');
+  const blacklist=getBlacklist();
+  const skin=get(LS.skin), goals=get(LS.goals);
+  const routine=`เช้า:\n${get(LS.routineAM)||'(ไม่มี)'}\nเย็น:\n${get(LS.routinePM)||'(ไม่มี)'}`;
 
-        // แทรกการแสดงผลสิ่งที่ควรเอาออกพร้อมสาเหตุ (Removals)
-        if (data.removals && data.removals.length > 0) {
-            gapsHtml += `<div class="mt-4 pt-3 border-t border-slate-700/50 font-bold text-rose-400 flex items-center gap-2"><i class="fa-solid fa-circle-xmark"></i> ผลิตภัณฑ์ที่แนะนำให้ปรับลด/เอาออก (Removals):</div>`;
-            gapsHtml += data.removals.map(r => `<li class="mb-2 ml-4 list-disc text-rose-200"><strong>${r.name}</strong>: ${r.reason}</li>`).join("");
-        }
+  if(scanMode==='compare'){
+    if(!imgs.C1.length||!imgs.C2.length){ toast('กรุณาใส่รูปทั้งสินค้า A และ B','bad'); return; }
+  }else{
+    if(!imgs.S.length){ toast('กรุณาอัปโหลดรูปสินค้าก่อน','bad'); return; }
+  }
 
-        document.getElementById("sugg-gaps").innerHTML = gapsHtml || `<li class="text-slate-500 italic">ไม่พบข้อบกพร่องในรูทีนของคุณ</li>`;
-        
-        // 2. แสดงผลในส่วนของ Synergy Tips
-        document.getElementById("sugg-tips").innerHTML = data.tips.map(t => `<li class="mb-1">${t}</li>`).join("");
-        
-        // 3. แสดงผลสินค้าแนะนำแยกตาม Budget Tier
-        const pBox = document.getElementById("sugg-products"); pBox.innerHTML = "";
-        data.products.forEach(p => {
-            let color = p.tier.includes("Budget") ? "emerald" : (p.tier.includes("Mid") ? "amber" : "purple");
-            pBox.innerHTML += `
-                <div class="bg-slate-900 border border-slate-700 p-4 rounded-xl flex flex-col justify-between">
-                    <div>
-                        <div class="text-[10px] font-bold text-${color}-400 uppercase tracking-wider mb-1">${p.tier}</div>
-                        <div class="font-bold text-white text-sm">${p.name}</div>
-                        <div class="text-xs text-${color}-300 mt-1">${p.price}</div>
-                        <p class="text-xs text-slate-400 mt-2">${p.reason}</p>
-                    </div>
-                </div>`;
-        });
-        resBox.classList.remove("hidden");
-    } catch(e) { alert("Suggestions Error: " + e.message); }
-    btn.classList.add("hidden");
-		}
-		
+  btn.disabled=true;
+  $('statusS').innerHTML='<div class="loading"><div class="spin"></div> กำลังวิเคราะห์สินค้า…</div>';
+  $('resultS').style.display='none';
+  $('chatCard').style.display='none';
 
+  const ctx=
+`ข้อมูลผู้ใช้:
+- สภาพผิว: ${skin||'(ไม่ระบุ)'}
+- เป้าหมาย: ${goals||'(ไม่ระบุ)'}
+- รูทีนปัจจุบัน:\n${routine}
+- ส่วนผสมที่แพ้/ต้องเลี่ยง: ${blacklist.length?blacklist.join(', '):'(ไม่มี)'}`;
 
-			
-        // --- Tab 5: Export & Reminders ---
-        function exportRoutineToPDF() {
-            document.getElementById("pdf-profile").textContent = state.profile.skinProfile || "-";
-            document.getElementById("pdf-goals").textContent = state.profile.skinGoals || "-";
-            document.getElementById("pdf-blacklist").textContent = state.profile.blacklist.join(", ") || "None";
-            
-            document.getElementById("pdf-am").innerHTML = state.amRoutine.map((r,i)=>`<div style="padding: 4px 0; border-bottom: 1px dashed #cbd5e1;"><strong>Step ${i+1}:</strong> ${r.name} ${r.note?`<br><span style="color:#64748b; font-size:10px;">${r.note}</span>`:''}</div>`).join("");
-            document.getElementById("pdf-pm").innerHTML = state.pmRoutine.map((r,i)=>`<div style="padding: 4px 0; border-bottom: 1px dashed #cbd5e1;"><strong>Step ${i+1}:</strong> ${r.name} ${r.note?`<br><span style="color:#64748b; font-size:10px;">${r.note}</span>`:''}</div>`).join("");
+  try{
+    let data;
+    if(scanMode==='compare'){
+      const prompt=
+`คุณคือผู้เชี่ยวชาญสกินแคร์ มีรูปสินค้า 2 ชุด: ชุดแรกคือสินค้า A ชุดที่สองคือสินค้า B
+ถ้าไม่แน่ใจชื่อหรือส่วนผสม ให้ค้นข้อมูลเพิ่ม
+${ctx}
 
-            const canvas = document.getElementById("pdf-canvas");
-            html2pdf().set({ margin: 10, filename: 'AI_Skincare_Routine.pdf', html2canvas: { scale: 2 }, jsPDF: { format: 'a4', orientation: 'portrait' } }).from(canvas).save();
-        }
+ตอบเป็น JSON เท่านั้น:
+{
+  "type":"compare",
+  "a":{ "name":"", "brand":"", "summary":"จุดเด่นสั้นๆ" },
+  "b":{ "name":"", "brand":"", "summary":"จุดเด่นสั้นๆ" },
+  "winner":"A" | "B" | "ขึ้นอยู่กับ",
+  "reason":"เหตุผลเปรียบเทียบโดยอิงผิวและเป้าหมายของผู้ใช้ 2-4 ประโยค",
+  "blacklist_hits":["ส่วนผสมต้องห้ามที่เจอ ถ้ามี"]
+}`;
+      const out=await callGemini(prompt,['C1','C2']);
+      data=parseJSON(out);
+      renderCompare(data);
+      saveHistory({ kind:'compare', title:`${(data.a&&data.a.name)||'A'} vs ${(data.b&&data.b.name)||'B'}`, thumb:imgs.C1[0]||imgs.C2[0]||'', data });
+    }else{
+      const prompt=
+`คุณคือผู้เชี่ยวชาญสกินแคร์ ดูรูปสินค้าที่แนบมา (อาจหลายมุมของชิ้นเดียวกัน)
+ระบุสินค้าและส่วนผสมสำคัญ ถ้าไม่แน่ใจให้ค้นข้อมูลเพิ่มก่อนสรุป
+วิเคราะห์ว่าควรเพิ่มเข้ารูทีนผู้ใช้ได้ไหม / ควรแทนที่สเต็ปไหน / มี conflict ไหม / มีส่วนผสมใน blacklist ไหม
+${ctx}
 
-        // Reminders Logic
-        function saveReminders() {
-            state.reminders.am = document.getElementById("time-am").value;
-            state.reminders.pm = document.getElementById("time-pm").value;
-            saveLocal();
-        }
+ตอบเป็น JSON เท่านั้น:
+{
+  "type":"single",
+  "name":"ชื่อสินค้า",
+  "brand":"แบรนด์",
+  "price":"ราคาโดยประมาณในไทย เช่น ~590 บาท หรือ 'ไม่พบข้อมูลราคา'",
+  "skin_fit":"เหมาะกับผิวแบบไหน",
+  "ingredients":[ { "name":"ชื่อส่วนผสม", "benefit":"ช่วยอะไร" } ],
+  "blacklist_hits":["ส่วนผสมต้องห้ามที่ตรงกับ blacklist ของผู้ใช้"],
+  "match":{
+     "verdict":"good" | "warn" | "bad",
+     "headline":"สรุปสั้นว่าควรเพิ่ม/แทนที่/เลี่ยง",
+     "add":"เพิ่มเข้ารูทีนได้ไหม อธิบาย",
+     "replace":"ควรแทนที่สเต็ปไหนไหม",
+     "conflict":"มี conflict กับของที่ใช้อยู่ไหม"
+  }
+}`;
+      const out=await callGemini(prompt,['S']);
+      data=parseJSON(out);
+      renderSingle(data);
+      saveHistory({ kind:'single', title:`${data.brand?data.brand+' ':''}${data.name||'สินค้า'}`, thumb:imgs.S[0]||'', data });
+    }
+    lastScanData=data;
+    initChat(data, ctx);
+    $('statusS').innerHTML='';
+    $('resultS').style.display='block';
+    $('chatCard').style.display='block';
+  }catch(err){
+    $('statusS').innerHTML=`<div class="errbox">⚠️ ${esc(err.message)}</div>`;
+  }finally{ btn.disabled=false; }
+}
 
-        function initReminders() {
-            setInterval(() => {
-                const now = new Date();
-                const h = String(now.getHours()).padStart(2, '0');
-                const m = String(now.getMinutes()).padStart(2, '0');
-                const currTime = `${h}:${m}`;
-                const sec = now.getSeconds();
-                
-                // Only trigger at exactly second 0 to avoid multiple triggers in a minute
-                if(sec === 0) {
-                    if(state.reminders.am && currTime === state.reminders.am) showToast("AM Routine", "ได้เวลาดูแลผิวช่วงเช้าแล้ว! ☀️");
-                    if(state.reminders.pm && currTime === state.reminders.pm) showToast("PM Routine", "ได้เวลาดูแลผิวช่วงก่อนนอนแล้ว! 🌙");
-                }
-            }, 1000);
-        }
+function verdictClass(v){ v=(v||'').toLowerCase(); return v==='good'?'good':v==='bad'?'bad':'warn'; }
+function verdictIcon(v){ v=(v||'').toLowerCase(); return v==='good'?'✅':v==='bad'?'🚫':'⚠️'; }
 
-        function showToast(title, msg) {
-            document.getElementById("toast-title").innerText = title;
-            document.getElementById("toast-msg").innerText = msg;
-            const t = document.getElementById("toast-container");
-            t.classList.add("show");
-            setTimeout(() => { closeToast(); }, 5000);
-        }
-        function closeToast() { document.getElementById("toast-container").classList.remove("show"); }
-    </script>
+function renderSingle(d){
+  const bl=(d.blacklist_hits||[]).filter(Boolean);
+  const ing=(d.ingredients||[]).map(x=>
+    `<div class="ing"><span class="k">${esc(x.name||'-')}</span><span>${esc(x.benefit||'')}</span></div>`).join('');
+  const m=d.match||{};
+  const productLabel=esc((d.brand?d.brand+' ':'')+( d.name||'สินค้า'));
+  let html=`
+    <h2 style="margin-bottom:6px;"><span class="ic">🧴</span> ${esc(d.name||'สินค้า')}</h2>
+    <p class="sub">${esc(d.brand||'')}${d.price?' · <span class="price">'+esc(d.price)+'</span>':''}</p>
+    ${d.skin_fit?`<div class="meta" style="font-size:13px;margin-bottom:12px;">💧 <b>เหมาะกับผิว:</b> ${esc(d.skin_fit)}</div>`:''}
+    ${ing?`<div style="margin-bottom:12px;"><div class="meta" style="font-weight:700;margin-bottom:4px;">🧪 ส่วนผสมสำคัญ</div>${ing}</div>`:''}
+  `;
+  if(bl.length) html+=`<div class="verdict bad"><div class="vh">🚫 พบส่วนผสมใน Blacklist ของคุณ</div>${esc(bl.join(', '))}</div>`;
+  html+=`
+    <div class="verdict ${verdictClass(m.verdict)}">
+      <div class="vh">${verdictIcon(m.verdict)} ${esc(m.headline||'ผลการแมตช์')}</div>
+      ${m.add?`<div style="margin:3px 0;">➕ <b>เพิ่มเข้ารูทีน:</b> ${esc(m.add)}</div>`:''}
+      ${m.replace?`<div style="margin:3px 0;">🔄 <b>แทนที่:</b> ${esc(m.replace)}</div>`:''}
+      ${m.conflict?`<div style="margin:3px 0;">⚠️ <b>Conflict:</b> ${esc(m.conflict)}</div>`:''}
+    </div>
+    <div class="add-routine-bar" id="addRoutineBar">
+      <button class="btn sage" onclick="addToRoutine()">➕ เพิ่ม ${productLabel} เข้า My Routine</button>
+      <div class="add-routine-status" id="addRoutineStatus"></div>
+    </div>`;
+  $('scanOutput').innerHTML=html;
+}
+
+function renderCompare(d){
+  const a=d.a||{}, b=d.b||{};
+  const bl=(d.blacklist_hits||[]).filter(Boolean);
+  const winner=(d.winner||'').trim();
+  const winnerIsA = winner==='A';
+  const winnerIsB = winner==='B';
+
+  let addBtns='';
+  if(winnerIsA){
+    addBtns=`<button class="btn sage" onclick="addToRoutineProduct(${JSON.stringify(esc(a.name||'สินค้า A'))},${JSON.stringify(esc(a.brand||''))})">➕ เพิ่ม ${esc(a.name||'สินค้า A')} เข้า Routine</button>`;
+  } else if(winnerIsB){
+    addBtns=`<button class="btn sage" onclick="addToRoutineProduct(${JSON.stringify(esc(b.name||'สินค้า B'))},${JSON.stringify(esc(b.brand||''))})">➕ เพิ่ม ${esc(b.name||'สินค้า B')} เข้า Routine</button>`;
+  } else {
+    addBtns=`
+      <button class="btn sage sm" onclick="addToRoutineProduct(${JSON.stringify(esc(a.name||'สินค้า A'))},${JSON.stringify(esc(a.brand||''))})">➕ เพิ่ม A</button>
+      <button class="btn sage sm" onclick="addToRoutineProduct(${JSON.stringify(esc(b.name||'สินค้า B'))},${JSON.stringify(esc(b.brand||''))})">➕ เพิ่ม B</button>`;
+  }
+
+  $('scanOutput').innerHTML=`
+    <h2 style="margin-bottom:10px;"><span class="ic">⚖️</span> เปรียบเทียบสินค้า</h2>
+    <div class="grid2">
+      <div class="step"><div class="head"><span class="num">A</span><span class="nm">${esc(a.name||'สินค้า A')}</span></div>
+        <div class="meta">${esc(a.brand||'')}</div><div class="meta">${esc(a.summary||'')}</div></div>
+      <div class="step"><div class="head"><span class="num" style="background:linear-gradient(135deg,var(--sage-deep),var(--sage));color:#10231a;">B</span><span class="nm">${esc(b.name||'สินค้า B')}</span></div>
+        <div class="meta">${esc(b.brand||'')}</div><div class="meta">${esc(b.summary||'')}</div></div>
+    </div>
+    ${bl.length?`<div class="verdict bad"><div class="vh">🚫 พบส่วนผสมใน Blacklist</div>${esc(bl.join(', '))}</div>`:''}
+    <div class="verdict good"><div class="vh">🏆 แนะนำ: ${esc(winner||'-')}</div>${esc(d.reason||'')}</div>
+    <div class="add-routine-bar" id="addRoutineBar">
+      ${addBtns}
+      <div class="add-routine-status" id="addRoutineStatus"></div>
+    </div>`;
+}
+
+/* ── Chat (Tab 3) ── */
+function initChat(scanData, userCtx){
+  chatHistory=[];
+  const productName = scanData.type==='compare'
+    ? `${(scanData.a&&scanData.a.name)||'สินค้า A'} vs ${(scanData.b&&scanData.b.name)||'สินค้า B'}`
+    : `${scanData.brand?scanData.brand+' ':''}${scanData.name||'สินค้า'}`;
+
+  // System context as first user message (will be hidden from display)
+  const systemMsg = `คุณคือผู้เชี่ยวชาญสกินแคร์ ตอบคำถามเกี่ยวกับสินค้า: ${productName}
+ผลการวิเคราะห์สินค้า: ${JSON.stringify(scanData)}
+${userCtx}
+ตอบเป็นภาษาไทย กระชับ เป็นมิตร`;
+
+  chatHistory=[{ role:'user', text:systemMsg }, { role:'ai', text:`สวัสดีค่ะ! ดิฉันวิเคราะห์ **${productName}** เรียบร้อยแล้ว มีคำถามอะไรเพิ่มเติมเกี่ยวกับสินค้านี้ไหมคะ?` }];
+
+  $('chatMsgs').innerHTML='';
+  appendChatBubble('ai', chatHistory[1].text);
+
+  const sugs=['ทาได้ทุกวันไหม?','ซื้อได้ที่ไหนบ้าง?','มี alternative ราคาถูกกว่าไหม?','ทาหลัง Retinol ได้ไหม?'];
+  $('chatSugs').innerHTML=sugs.map(s=>`<button class="chat-sug" onclick="quickChat('${esc(s)}')">${esc(s)}</button>`).join('');
+  $('chatInput').value='';
+}
+
+function appendChatBubble(role, text){
+  const div=document.createElement('div');
+  div.className='chat-bubble '+role;
+  div.textContent=text;
+  $('chatMsgs').appendChild(div);
+  $('chatMsgs').scrollTop=$('chatMsgs').scrollHeight;
+}
+
+function quickChat(text){
+  $('chatInput').value=text;
+  sendChat();
+}
+
+async function sendChat(){
+  const inp=$('chatInput');
+  const text=inp.value.trim();
+  if(!text||!lastScanData) return;
+
+  inp.value='';
+  $('chatSugs').innerHTML='';
+  appendChatBubble('user',text);
+  chatHistory.push({ role:'user', text });
+
+  const btn=$('chatSendBtn'); btn.disabled=true;
+  const loader=document.createElement('div');
+  loader.className='chat-bubble ai loading';
+  loader.innerHTML='<div class="spin"></div>';
+  $('chatMsgs').appendChild(loader);
+  $('chatMsgs').scrollTop=$('chatMsgs').scrollHeight;
+
+  try{
+    const reply=await callGeminiChat(chatHistory);
+    loader.remove();
+    chatHistory.push({ role:'ai', text:reply });
+    appendChatBubble('ai',reply);
+  }catch(err){
+    loader.remove();
+    appendChatBubble('ai','⚠️ '+err.message);
+  }finally{ btn.disabled=false; }
+}
+
+/* ── History ── */
+function getHistory(){ try{ return JSON.parse(get(LS.history,'[]')); }catch(e){ return []; } }
+function saveHistory(item){
+  const h=getHistory();
+  item.id=Date.now();
+  item.ts=new Date().toLocaleString('th-TH',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+  h.unshift(item);
+  while(h.length>30) h.pop();
+  try{ set(LS.history,JSON.stringify(h)); }
+  catch(e){ h.forEach(x=>x.thumb=''); try{ set(LS.history,JSON.stringify(h.slice(0,15))); }catch(_){} }
+  renderHistory();
+}
+function renderHistory(){
+  const h=getHistory(); const c=$('histList');
+  if(!h.length){ c.innerHTML='<div class="empty">ยังไม่มีประวัติการสแกน</div>'; return; }
+  c.innerHTML=h.map(it=>`
+    <div class="hist-item" onclick="openHistory(${it.id})">
+      ${it.thumb?`<img src="${it.thumb}" alt="">`:'<div style="width:46px;height:46px;border-radius:8px;background:var(--panel);display:grid;place-items:center;flex:none;">🧴</div>'}
+      <div style="flex:1;min-width:0;">
+        <div class="hn">${esc(it.title||'สินค้า')}</div>
+        <div class="hm">${it.kind==='compare'?'เปรียบเทียบ':'วิเคราะห์'} · ${esc(it.ts||'')}</div>
+      </div>
+    </div>`).join('');
+}
+function openHistory(id){
+  const it=getHistory().find(x=>x.id===id);
+  if(!it) return;
+  if(it.kind==='compare') renderCompare(it.data); else renderSingle(it.data);
+  lastScanData=it.data;
+  const skin=get(LS.skin), goals=get(LS.goals);
+  const routine=`เช้า:\n${get(LS.routineAM)||'(ไม่มี)'}\nเย็น:\n${get(LS.routinePM)||'(ไม่มี)'}`;
+  const ctx=`สภาพผิว: ${skin||'(ไม่ระบุ)'}\nเป้าหมาย: ${goals||'(ไม่ระบุ)'}\nรูทีน:\n${routine}`;
+  initChat(it.data, ctx);
+  $('resultS').style.display='block';
+  $('chatCard').style.display='block';
+  $('resultS').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function clearHistory(){
+  if(!getHistory().length) return;
+  if(confirm('ล้างประวัติการสแกนทั้งหมด?')){ set(LS.history,'[]'); renderHistory(); toast('ล้างประวัติแล้ว','ok'); }
+}
+
+/* ── Add to Routine (from Scanner) ── */
+function addToRoutine(){
+  if(!lastScanData||lastScanData.type!=='single'){ toast('ไม่พบข้อมูลสินค้า','bad'); return; }
+  addToRoutineProduct(lastScanData.name||'สินค้า', lastScanData.brand||'', lastScanData);
+}
+
+async function addToRoutineProduct(productName, brand, scanData){
+  const bar=$('addRoutineBar');
+  const statusEl=$('addRoutineStatus');
+  if(!bar||!statusEl) return;
+
+  // disable all buttons in bar
+  bar.querySelectorAll('button').forEach(b=>b.disabled=true);
+  statusEl.className='add-routine-status';
+  statusEl.innerHTML='<div class="loading" style="display:inline-flex;gap:8px;"><div class="spin"></div> กำลังจัดเรียง Routine ใหม่…</div>';
+
+  const currentAM = get(LS.routineAM)||'(ยังไม่มี)';
+  const currentPM = get(LS.routinePM)||'(ยังไม่มี)';
+  const skin = get(LS.skin);
+  const goals = get(LS.goals);
+
+  const ingList = scanData && scanData.ingredients
+    ? scanData.ingredients.map(x=>x.name).join(', ')
+    : '';
+  const skinFit = scanData && scanData.skin_fit ? scanData.skin_fit : '';
+
+  const prompt =
+`คุณคือผู้เชี่ยวชาญสกินแคร์ ช่วยเพิ่มสินค้าใหม่เข้ารูทีนและจัดเรียงลำดับใหม่ให้ถูกต้อง
+
+รูทีนปัจจุบัน:
+เช้า (AM): ${currentAM}
+เย็น (PM): ${currentPM}
+
+สินค้าที่ต้องการเพิ่ม: ${productName}${brand?' ('+brand+')':''}
+${ingList?'ส่วนผสมหลัก: '+ingList:''}
+${skinFit?'เหมาะกับ: '+skinFit:''}
+${skin?'สภาพผิวผู้ใช้: '+skin:''}
+${goals?'เป้าหมาย: '+goals:''}
+
+งาน:
+1. กำหนดว่า "${productName}" ควรใช้ AM / PM / ทั้งคู่
+2. แทรกสินค้าในตำแหน่งที่ถูกต้องตามหลัก: ล้างหน้า → toner → essence → serum → eye cream → moisturizer → sunscreen (AM เท่านั้น) / oil (PM) เนื้อบาง→เนื้อหนัก
+3. จัดเรียงรูทีนทั้งหมดใหม่ให้ถูกลำดับ
+
+ตอบ JSON เท่านั้น:
+{
+  "am": ["ชื่อสินค้า step 1", "step 2", ...],
+  "pm": ["ชื่อสินค้า step 1", ...],
+  "added_to": "AM" | "PM" | "Both",
+  "added_position_am": 0,
+  "added_position_pm": 0,
+  "note": "อธิบายสั้น ๆ ว่าใส่ที่ step ไหน เพราะอะไร"
+}
+หมายเหตุ: added_position_am / added_position_pm = index (0-based) ที่แทรกสินค้าใหม่ (ถ้าไม่ได้ใส่ใน AM ให้ใส่ -1)`;
+
+  try{
+    const out = await callGemini(prompt, []);
+    const data = parseJSON(out);
+
+    if(!Array.isArray(data.am)&&!Array.isArray(data.pm)) throw new Error('รูปแบบผลลัพธ์ไม่ถูกต้อง');
+
+    const newAM = (data.am||[]);
+    const newPM = (data.pm||[]);
+    const addedTo = data.added_to||'';
+    const note = data.note||'';
+
+    // store pending data — avoids embedding JSON inside onclick HTML attribute
+    pendingRoutineUpdate = { am: newAM, pm: newPM };
+
+    const hiAM = typeof data.added_position_am==='number' ? data.added_position_am : -1;
+    const hiPM = typeof data.added_position_pm==='number' ? data.added_position_pm : -1;
+
+    const renderCol = (steps, hiIdx) =>
+      steps.map((s,i)=>`<div${i===hiIdx?' class="new-item"':''}>${i+1}. ${esc(s)}</div>`).join('');
+
+    const previewHtml = `
+      <div class="reseq-preview">
+        <div class="rp-head">👁 ตัวอย่าง Routine ใหม่ <span style="color:var(--sage);margin-left:6px;font-weight:400;">เพิ่ม "${esc(productName)}" (${esc(addedTo)})</span></div>
+        <div class="rp-cols">
+          <div class="rp-col"><h4>☀️ AM เช้า</h4>${renderCol(newAM, hiAM)||'<span style="color:var(--ink-faint);">(ไม่มี)</span>'}</div>
+          <div class="rp-col"><h4>🌙 PM เย็น</h4>${renderCol(newPM, hiPM)||'<span style="color:var(--ink-faint);">(ไม่มี)</span>'}</div>
+        </div>
+        ${note?`<div style="padding:8px 12px;font-size:12px;color:var(--ink-dim);border-top:1px solid var(--line);">💡 ${esc(note)}</div>`:''}
+        <div class="reseq-confirm-row">
+          <button class="btn sage sm" onclick="confirmAddRoutine()">✅ บันทึก Routine นี้</button>
+          <button class="btn ghost sm" onclick="cancelAddRoutine()">ยกเลิก</button>
+        </div>
+      </div>`;
+
+    statusEl.className='add-routine-status';
+    statusEl.innerHTML=previewHtml;
+  }catch(err){
+    statusEl.className='add-routine-status err';
+    statusEl.textContent='⚠️ '+err.message;
+    bar.querySelectorAll('button').forEach(b=>b.disabled=false);
+  }
+}
+
+function confirmAddRoutine(){
+  if(!pendingRoutineUpdate){ toast('ไม่พบข้อมูลที่รอบันทึก','bad'); return; }
+  const { am: amArr, pm: pmArr } = pendingRoutineUpdate;
+  pendingRoutineUpdate = null;
+  const fmt = arr => arr.map((l,i)=>`${i+1}. ${l}`).join('\n');
+  $('routineAM').value = fmt(amArr);
+  $('routinePM').value = fmt(pmArr);
+  set(LS.routineAM, $('routineAM').value);
+  set(LS.routinePM, $('routinePM').value);
+
+  const statusEl=$('addRoutineStatus');
+  const bar=$('addRoutineBar');
+  if(statusEl) statusEl.innerHTML='';
+  if(bar){
+    bar.innerHTML=`<span style="color:var(--ok);font-weight:600;">✓ บันทึกเข้า My Routine แล้ว</span>
+      <button class="btn ghost sm" onclick="document.querySelector('.tab[data-tab=profile]').click()">ไปดู Routine →</button>`;
+  }
+  toast('อัปเดต Routine แล้ว ✓','ok');
+}
+
+function cancelAddRoutine(){
+  const statusEl=$('addRoutineStatus');
+  const bar=$('addRoutineBar');
+  if(statusEl) statusEl.innerHTML='';
+  if(bar) bar.querySelectorAll('button').forEach(b=>b.disabled=false);
+}
+
+/* ── Tab 4: AI Suggestions ── */
+async function analyzeProfile(){
+  const skin=get(LS.skin), goals=get(LS.goals);
+  const routineAM=get(LS.routineAM)||'(ไม่มี)';
+  const routinePM=get(LS.routinePM)||'(ไม่มี)';
+  const blacklist=getBlacklist();
+
+  if(!skin&&!goals){ toast('กรุณากรอก Skin Profile และ Skin Goals ใน My Profile ก่อน','bad'); return; }
+
+  $('runSug').disabled=true;
+  $('refreshSug').disabled=true;
+  $('statusSug').innerHTML='<div class="loading" style="margin-top:10px;"><div class="spin"></div> กำลังวิเคราะห์โปรไฟล์ผิวของคุณ…</div>';
+  $('sugOutput').style.display='none';
+
+  const prompt=
+`คุณคือผู้เชี่ยวชาญสกินแคร์ระดับสูง วิเคราะห์โปรไฟล์ผิวต่อไปนี้อย่างละเอียด:
+
+สภาพผิว: ${skin||'(ไม่ระบุ)'}
+เป้าหมาย: ${goals||'(ไม่ระบุ)'}
+รูทีนเช้าปัจจุบัน: ${routineAM}
+รูทีนเย็นปัจจุบัน: ${routinePM}
+ส่วนผสมที่แพ้/เลี่ยง: ${blacklist.length?blacklist.join(', '):'(ไม่มี)'}
+
+ให้วิเคราะห์ทั้งหมด แล้วตอบเป็น JSON เท่านั้น:
+{
+  "duplicates": [
+    {
+      "items": ["ชื่อสินค้า A", "ชื่อสินค้า B"],
+      "reason": "อธิบายว่าซ้ำซ้อนกันอย่างไร เช่น ทั้งคู่เป็น Vitamin C serum",
+      "keep": "ชื่อสินค้าที่แนะนำให้เก็บไว้",
+      "remove": "ชื่อสินค้าที่แนะนำให้ตัดออก"
+    }
+  ],
+  "gap_analysis": [
+    { "issue": "ปัญหาที่พบ เช่น ขาด SPF", "why": "เหตุผลทำไมสำคัญ", "severity": "high" | "medium" | "low" }
+  ],
+  "optimized_routine": {
+    "am": ["step 1 ชื่อสินค้า", "step 2 ..."],
+    "pm": ["step 1 ชื่อสินค้า", "step 2 ..."],
+    "changes": "อธิบายสรุปการเปลี่ยนแปลงจากรูทีนเดิม เช่น ตัด X ออก เพราะซ้ำกับ Y และจัดลำดับใหม่"
+  },
+  "recommendations": {
+    "budget": [
+      { "name": "ชื่อสินค้า", "brand": "แบรนด์", "price": "ราคาโดยประมาณ เช่น ~250 บาท", "why": "ทำไมเหมาะกับผิวนี้" }
+    ],
+    "mid": [ { "name":"", "brand":"", "price":"", "why":"" } ],
+    "premium": [ { "name":"", "brand":"", "price":"", "why":"" } ]
+  },
+  "synergy_tips": [
+    { "tip": "คำแนะนำ เช่น Vitamin C + Niacinamide ใช้คู่กันได้ดีเพราะ...", "type": "good" | "bad" }
+  ]
+}
+
+- duplicates: ถ้าไม่มีของซ้ำให้ส่ง array ว่าง []
+- optimized_routine: รูทีนที่ตัดของซ้ำออกแล้ว จัดลำดับถูกต้อง (บาง→หนัก)
+- gap_analysis: 3-5 รายการ, แต่ละ tier recommendations: 2-3 สินค้า, synergy_tips: 3-5 รายการ`;
+
+  try{
+    const out=await callGemini(prompt,[]);
+    const data=parseJSON(out);
+    renderSuggestions(data);
+    initSugChat(data, { skin, goals, routineAM, routinePM });
+    $('statusSug').innerHTML='';
+    $('sugOutput').style.display='block';
+    $('refreshSug').style.display='';
+  }catch(err){
+    $('statusSug').innerHTML=`<div class="errbox">⚠️ ${esc(err.message)}</div>`;
+  }finally{
+    $('runSug').disabled=false;
+    $('refreshSug').disabled=false;
+  }
+}
+
+function parseRoutineLines(text){
+  return (text||'').split('\n')
+    .map(l=>l.replace(/^\s*\d+[.)]\s*/,'').trim())  // strip "1. " numbering
+    .filter(Boolean);
+}
+
+function renderSuggestions(data){
+  // Duplicates — keep only entries with 2+ real item names
+  const dups=(data.duplicates||[]).filter(d=>
+    Array.isArray(d.items) && d.items.filter(x=>x&&String(x).trim()).length>1);
+  if(dups.length){
+    $('dupCard').style.display='';
+    $('dupList').innerHTML=dups.map(d=>`
+      <div class="dup-item">
+        <div class="dup-tags">${(d.items||[]).filter(x=>x&&String(x).trim()).map(x=>`<span class="dup-tag">${esc(x)}</span>`).join('<span class="dup-arrow">↔</span>')}</div>
+        ${d.reason?`<div class="dup-reason">${esc(d.reason)}</div>`:''}
+        ${(d.keep||d.remove)?`<div class="dup-verdict">
+          ${d.keep?`<span class="dup-keep">✅ เก็บไว้: ${esc(d.keep)}</span>`:''}
+          ${d.remove?`<span class="dup-remove">🗑 ตัดออก: ${esc(d.remove)}</span>`:''}
+        </div>`:''}
+      </div>`).join('');
+  } else {
+    $('dupCard').style.display='none';
+  }
+
+  // Optimized Routine preview — fall back to current routine (minus removed dups) if AI omits it
+  const opt=data.optimized_routine||{};
+  let optAM=Array.isArray(opt.am)?opt.am.filter(Boolean):[];
+  let optPM=Array.isArray(opt.pm)?opt.pm.filter(Boolean):[];
+  let changes=opt.changes||'';
+
+  if(!optAM.length && !optPM.length){
+    // build fallback from current routine, dropping items flagged for removal
+    const removeSet=new Set(dups.map(d=>(d.remove||'').toLowerCase().trim()).filter(Boolean));
+    const drop=line=>!removeSet.size ? false :
+      [...removeSet].some(r=>line.toLowerCase().includes(r));
+    optAM=parseRoutineLines(get(LS.routineAM)).filter(l=>!drop(l));
+    optPM=parseRoutineLines(get(LS.routinePM)).filter(l=>!drop(l));
+    if(removeSet.size) changes='ตัดสินค้าที่ซ้ำซ้อนออกจากรูทีนเดิมให้แล้ว';
+    else changes='นี่คือรูทีนปัจจุบันของคุณ — กด Save เพื่อยืนยัน';
+  }
+
+  if(optAM.length||optPM.length){
+    pendingSugRoutine={ am:optAM, pm:optPM };
+    const renderOptCol=(steps)=>steps.map((s,i)=>`<div>${i+1}. ${esc(s)}</div>`).join('');
+    $('optRoutinePreview').innerHTML=`
+      <div class="rp-cols">
+        <div class="rp-col"><h4>☀️ AM เช้า</h4>${renderOptCol(optAM)||'<span style="color:var(--ink-faint);">(ไม่มี)</span>'}</div>
+        <div class="rp-col"><h4>🌙 PM เย็น</h4>${renderOptCol(optPM)||'<span style="color:var(--ink-faint);">(ไม่มี)</span>'}</div>
+      </div>
+      ${changes?`<div style="padding:8px 12px;font-size:12px;color:var(--ink-dim);border-top:1px solid var(--line);">💡 ${esc(changes)}</div>`:''}`;
+    // reset action row (in case it was replaced by a previous save)
+    $('optRoutineActions').innerHTML=`
+      <button class="btn sage" onclick="confirmSugRoutine()">✅ Save to My Routine</button>
+      <span class="saved-flash" id="flash-sug-routine">บันทึกแล้ว ✓</span>`;
+    $('optRoutineCard').style.display='';
+  } else {
+    pendingSugRoutine=null;
+    $('optRoutineCard').style.display='none';
+  }
+
+  // Gap Analysis
+  const gaps=(data.gap_analysis||[]);
+  $('gapList').innerHTML = gaps.length
+    ? gaps.map(g=>`
+        <div class="gap-item">
+          <span class="gap-sev ${(g.severity||'medium').toLowerCase()}">${(g.severity||'medium').toUpperCase()}</span>
+          <div><div style="font-weight:700;margin-bottom:3px;">${esc(g.issue||'')}</div><div style="color:var(--ink-dim);font-size:12.5px;">${esc(g.why||'')}</div></div>
+        </div>`).join('')
+    : '<div class="empty">รูทีนของคุณครบถ้วนดีแล้ว 🎉</div>';
+
+  // Recommendations
+  renderRecommendations(data.recommendations||{});
+
+  // Synergy tips
+  const syns=(data.synergy_tips||[]);
+  $('synList').innerHTML = syns.length
+    ? syns.map(s=>`
+        <div class="syn-item">
+          <span class="syn-icon">${s.type==='good'?'✅':'⚠️'}</span>
+          <div>${esc(s.tip||'')}</div>
+        </div>`).join('')
+    : '<div class="empty">ไม่มีข้อมูล synergy จากรูทีนปัจจุบัน</div>';
+}
+
+function confirmSugRoutine(){
+  if(!pendingSugRoutine){ toast('ไม่พบข้อมูล routine ที่รอบันทึก','bad'); return; }
+  const fmt=arr=>arr.map((l,i)=>`${i+1}. ${l}`).join('\n');
+  $('routineAM').value=fmt(pendingSugRoutine.am);
+  $('routinePM').value=fmt(pendingSugRoutine.pm);
+  set(LS.routineAM,$('routineAM').value);
+  set(LS.routinePM,$('routinePM').value);
+  pendingSugRoutine=null;
+  flash('sug-routine');
+  toast('บันทึก Optimized Routine แล้ว ✓','ok');
+  $('optRoutineActions').innerHTML=`
+    <span style="color:var(--ok);font-weight:600;">✓ บันทึกแล้ว</span>
+    <button class="btn ghost sm" onclick="document.querySelector('.tab[data-tab=profile]').click()">ไปดู My Routine →</button>`;
+}
+
+/* ── Recommendations render + refresh ── */
+function renderRecommendations(rec){
+  const tiers=[
+    { key:'budget', label:'💚 Budget', sub:'ไม่เกิน 500 บาท', cls:'budget' },
+    { key:'mid',    label:'💛 Mid-range', sub:'500–1,500 บาท', cls:'mid' },
+    { key:'premium',label:'💎 Premium', sub:'1,500+ บาท', cls:'premium' }
+  ];
+  lastRecItems=[];  // rebuild flat list so wishlist buttons can reference by index
+  const html=tiers.map(tier=>{
+    const items=(rec[tier.key]||[]);
+    if(!items.length) return '';
+    return `
+      <div class="rec-tier">
+        <div class="tier-label ${tier.cls}">${tier.label} <span style="font-weight:400;opacity:.8;">${tier.sub}</span></div>
+        ${items.map(r=>{
+          const idx=lastRecItems.push({ name:r.name||'', brand:r.brand||'', price:r.price||'', tier:tier.key })-1;
+          return `
+          <div class="rec-card">
+            <button class="wish-btn" title="เพิ่มเข้า Wishlist" onclick="addWishlist(${idx})">♡</button>
+            <div class="rn">${esc(r.name||'')} <span style="color:var(--ink-faint);font-weight:400;font-size:12px;">${esc(r.brand||'')}</span></div>
+            ${r.price?`<div style="color:var(--gold);font-size:12.5px;font-weight:700;margin:2px 0;">${esc(r.price)}</div>`:''}
+            <div class="rb">${esc(r.why||'')}</div>
+          </div>`;
+        }).join('')}
+      </div>`;
+  }).join('');
+  $('recList').innerHTML = html || '<div class="empty">ยังไม่มีคำแนะนำสินค้า</div>';
+  refreshWishBtns();
+}
+
+async function refreshRecommendations(){
+  const skin=get(LS.skin), goals=get(LS.goals);
+  const routineAM=get(LS.routineAM)||'(ไม่มี)';
+  const routinePM=get(LS.routinePM)||'(ไม่มี)';
+  const blacklist=getBlacklist();
+  const wishNames=getWishlist().map(w=>w.name).filter(Boolean);
+
+  const btn=$('refreshRec'); btn.disabled=true;
+  $('statusRec').innerHTML='<div class="loading"><div class="spin"></div> กำลังหาสินค้าแนะนำชุดใหม่…</div>';
+
+  const prompt=
+`คุณคือผู้เชี่ยวชาญสกินแคร์ แนะนำสินค้าที่เหมาะกับผู้ใช้นี้ โดยขอ "ชุดใหม่" ที่แตกต่างจากรอบก่อน
+
+สภาพผิว: ${skin||'(ไม่ระบุ)'}
+เป้าหมาย: ${goals||'(ไม่ระบุ)'}
+รูทีนเช้า: ${routineAM}
+รูทีนเย็น: ${routinePM}
+ส่วนผสมที่แพ้/เลี่ยง: ${blacklist.length?blacklist.join(', '):'(ไม่มี)'}
+สินค้าที่เคยแนะนำ/อยู่ใน wishlist แล้ว (อย่าแนะนำซ้ำ): ${wishNames.length?wishNames.join(', '):'(ไม่มี)'}
+
+แนะนำสินค้าใหม่ แบรนด์/รุ่นที่ต่างจากเดิม แต่ละ tier 2-3 ชิ้น ตอบ JSON เท่านั้น:
+{
+  "budget": [ { "name":"", "brand":"", "price":"~ราคา บาท", "why":"ทำไมเหมาะ" } ],
+  "mid": [ { "name":"", "brand":"", "price":"", "why":"" } ],
+  "premium": [ { "name":"", "brand":"", "price":"", "why":"" } ]
+}`;
+
+  try{
+    const out=await callGemini(prompt,[]);
+    const data=parseJSON(out);
+    // accept either {budget,mid,premium} or {recommendations:{...}}
+    const rec=data.recommendations||data;
+    renderRecommendations(rec);
+    $('statusRec').innerHTML='';
+    toast('อัปเดตคำแนะนำชุดใหม่แล้ว ✓','ok');
+  }catch(err){
+    $('statusRec').innerHTML=`<div class="errbox">⚠️ ${esc(err.message)}</div>`;
+  }finally{ btn.disabled=false; }
+}
+
+/* ── Wishlist ── */
+function getWishlist(){ try{ return JSON.parse(get(LS.wishlist,'[]')); }catch(e){ return []; } }
+function setWishlist(arr){ set(LS.wishlist, JSON.stringify(arr)); }
+function wishKey(it){ return ((it.name||'')+'|'+(it.brand||'')).toLowerCase().trim(); }
+
+function addWishlist(idx){
+  const item=lastRecItems[idx];
+  if(!item){ return; }
+  const arr=getWishlist();
+  if(arr.some(x=>wishKey(x)===wishKey(item))){ toast('มีใน Wishlist อยู่แล้ว'); return; }
+  arr.push({ name:item.name, brand:item.brand, price:item.price, ts:Date.now() });
+  setWishlist(arr);
+  renderWishlist();
+  refreshWishBtns();
+  toast('เพิ่มเข้า Wishlist แล้ว ♥','ok');
+}
+function removeWishlist(i){ const arr=getWishlist(); arr.splice(i,1); setWishlist(arr); renderWishlist(); refreshWishBtns(); }
+function clearWishlist(){
+  if(!getWishlist().length) return;
+  if(confirm('ล้าง Wishlist ทั้งหมด?')){ setWishlist([]); renderWishlist(); refreshWishBtns(); toast('ล้าง Wishlist แล้ว','ok'); }
+}
+function copyWishlist(){
+  const arr=getWishlist();
+  if(!arr.length){ toast('Wishlist ว่างเปล่า','bad'); return; }
+  const text=arr.map((it,i)=>{
+    const parts=[`${i+1}. ${it.name||''}`.trim()];
+    if(it.brand) parts.push(`(${it.brand})`);
+    if(it.price) parts.push(`- ${it.price}`);
+    return parts.join(' ');
+  }).join('\n');
+  const done=()=>toast('คัดลอกแล้ว — ไปวางในแอปซื้อได้เลย ✓','ok');
+  const fallback=()=>{
+    const ta=document.createElement('textarea');
+    ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try{ document.execCommand('copy'); done(); }
+    catch(e){ toast('คัดลอกไม่สำเร็จ','bad'); }
+    document.body.removeChild(ta);
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(fallback);
+  } else { fallback(); }
+}
+function renderWishlist(){
+  const arr=getWishlist(); const c=$('wishList');
+  $('wishClearRow').style.display = arr.length?'':'none';
+  if(!arr.length){ c.innerHTML='<div class="empty">ยังไม่มีสินค้าใน Wishlist</div>'; return; }
+  c.innerHTML=arr.map((it,i)=>`
+    <div class="wish-item">
+      <div style="flex:1;min-width:0;">
+        <div class="wn">${esc(it.name||'-')} <span style="color:var(--ink-faint);font-weight:400;font-size:12px;">${esc(it.brand||'')}</span></div>
+        ${it.price?`<div style="color:var(--gold);font-size:12px;font-weight:700;">${esc(it.price)}</div>`:''}
+      </div>
+      <button class="btn ghost sm" onclick="removeWishlist(${i})">✕</button>
+    </div>`).join('');
+}
+// mark rec buttons already in wishlist as filled hearts
+function refreshWishBtns(){
+  const keys=new Set(getWishlist().map(wishKey));
+  document.querySelectorAll('#recList .wish-btn').forEach((btn,idx)=>{
+    const item=lastRecItems[idx];
+    if(item && keys.has(wishKey(item))){ btn.textContent='♥'; btn.classList.add('on'); }
+    else{ btn.textContent='♡'; btn.classList.remove('on'); }
+  });
+}
+
+/* ── AI Suggestions Chat ── */
+function initSugChat(data, userCtx){
+  const ctx=`คุณคือผู้เชี่ยวชาญสกินแคร์ ตอบคำถามต่อยอดจากผลวิเคราะห์โปรไฟล์ผิวของผู้ใช้
+ผลวิเคราะห์ล่าสุด: ${JSON.stringify(data)}
+ข้อมูลผู้ใช้: สภาพผิว ${userCtx.skin||'(ไม่ระบุ)'} | เป้าหมาย ${userCtx.goals||'(ไม่ระบุ)'}
+รูทีนเช้า: ${userCtx.routineAM} | รูทีนเย็น: ${userCtx.routinePM}
+ตอบเป็นภาษาไทย กระชับ เป็นมิตร`;
+
+  sugChatHistory=[
+    { role:'user', text:ctx },
+    { role:'ai', text:'วิเคราะห์โปรไฟล์ของคุณเรียบร้อยแล้วค่ะ มีอะไรอยากถามเพิ่มเกี่ยวกับรูทีนหรือสินค้าที่แนะนำไหมคะ?' }
+  ];
+
+  $('sugChatMsgs').innerHTML='';
+  appendSugBubble('ai', sugChatHistory[1].text);
+
+  const sugs=['เริ่มจากอะไรก่อนดี?','ควรเพิ่มสินค้าตัวไหนก่อน?','ส่วนผสมไหนห้ามใช้คู่กัน?','ใช้กี่สัปดาห์ถึงเห็นผล?'];
+  $('sugChatSugs').innerHTML=sugs.map(s=>`<button class="chat-sug" onclick="quickSugChat('${esc(s)}')">${esc(s)}</button>`).join('');
+  $('sugChatInput').value='';
+}
+
+function appendSugBubble(role, text){
+  const div=document.createElement('div');
+  div.className='chat-bubble '+role;
+  div.textContent=text;
+  $('sugChatMsgs').appendChild(div);
+  $('sugChatMsgs').scrollTop=$('sugChatMsgs').scrollHeight;
+}
+
+function quickSugChat(text){ $('sugChatInput').value=text; sendSugChat(); }
+
+async function sendSugChat(){
+  const inp=$('sugChatInput');
+  const text=inp.value.trim();
+  if(!text||!sugChatHistory.length) return;
+
+  inp.value='';
+  $('sugChatSugs').innerHTML='';
+  appendSugBubble('user',text);
+  sugChatHistory.push({ role:'user', text });
+
+  const btn=$('sugChatSendBtn'); btn.disabled=true;
+  const loader=document.createElement('div');
+  loader.className='chat-bubble ai loading';
+  loader.innerHTML='<div class="spin"></div>';
+  $('sugChatMsgs').appendChild(loader);
+  $('sugChatMsgs').scrollTop=$('sugChatMsgs').scrollHeight;
+
+  try{
+    const reply=await callGeminiChat(sugChatHistory);
+    loader.remove();
+    sugChatHistory.push({ role:'ai', text:reply });
+    appendSugBubble('ai',reply);
+  }catch(err){
+    loader.remove();
+    appendSugBubble('ai','⚠️ '+err.message);
+  }finally{ btn.disabled=false; }
+}
+
+/* ── Tab 5: Export ── */
+function exportPDF(){
+  const am=get(LS.routineAM)||'(ยังไม่ได้บันทึกรูทีนเช้า)';
+  const pm=get(LS.routinePM)||'(ยังไม่ได้บันทึกรูทีนเย็น)';
+  const skin=get(LS.skin), goals=get(LS.goals);
+  const w=window.open('','_blank');
+  if(!w){ toast('เบราว์เซอร์บล็อก popup — อนุญาตก่อนนะครับ','bad'); return; }
+  const block=t=>esc(t).replace(/\n/g,'<br>');
+  w.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><title>My Skincare Routine</title>
+  <style>
+    @page{margin:18mm;}
+    body{font-family:-apple-system,"Noto Sans Thai",Segoe UI,sans-serif;color:#222;padding:10px;}
+    h1{font-size:24px;margin:0 0 2px;}
+    .sub{color:#888;font-size:13px;margin-bottom:20px;}
+    .cols{display:flex;gap:24px;}
+    .col{flex:1;border:1px solid #ddd;border-radius:12px;padding:16px;}
+    .col h2{font-size:16px;margin:0 0 10px;padding-bottom:8px;border-bottom:2px solid #eee;}
+    .am h2{color:#c08a2a;} .pm h2{color:#5a6bc0;}
+    .body{font-size:14px;line-height:2;white-space:pre-wrap;}
+    .meta{margin-top:22px;font-size:13px;color:#555;}
+    .meta b{color:#222;}
+    .foot{margin-top:26px;font-size:11px;color:#aaa;text-align:center;}
+  </style></head><body>
+    <h1>🧴 My Skincare Routine</h1>
+    <div class="sub">สร้างเมื่อ ${new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'})}</div>
+    <div class="cols">
+      <div class="col am"><h2>☀️ เช้า (AM)</h2><div class="body">${block(am)}</div></div>
+      <div class="col pm"><h2>🌙 เย็น (PM)</h2><div class="body">${block(pm)}</div></div>
+    </div>
+    ${skin?`<div class="meta"><b>สภาพผิว:</b> ${block(skin)}</div>`:''}
+    ${goals?`<div class="meta"><b>เป้าหมาย:</b> ${block(goals)}</div>`:''}
+    <div class="foot">Skincare AI Assistant</div>
+    <script>window.onload=function(){setTimeout(function(){window.print();},350);};<\/script>
+  </body></html>`);
+  w.document.close();
+}
+
+let reminderTimer=null;
+let firedToday={am:'',pm:''};
+function validTime(t){ return /^([01]?\d|2[0-3]):[0-5]\d$/.test((t||'').trim()); }
+function enableReminders(){
+  const am=$('remAM').value.trim(), pm=$('remPM').value.trim();
+  if(am&&!validTime(am)){ toast('เวลาเช้าไม่ถูกต้อง ใช้รูปแบบ HH:MM','bad'); return; }
+  if(pm&&!validTime(pm)){ toast('เวลาเย็นไม่ถูกต้อง ใช้รูปแบบ HH:MM','bad'); return; }
+  if(!am&&!pm){ toast('ใส่เวลาอย่างน้อยหนึ่งช่อง','bad'); return; }
+  set(LS.remAM,am); set(LS.remPM,pm);
+  if(!('Notification' in window)){ toast('เบราว์เซอร์นี้ไม่รองรับ Notification','bad'); return; }
+  Notification.requestPermission().then(perm=>{
+    if(perm!=='granted'){ toast('ยังไม่ได้อนุญาต Notification','bad'); return; }
+    set(LS.remOn,'1'); startReminderLoop();
+    $('remStatus').textContent='สถานะ: เปิดอยู่';
+    flash('rem'); toast('เปิดการเตือนแล้ว ✓','ok');
+  });
+}
+function disableReminders(){
+  set(LS.remOn,'0');
+  if(reminderTimer){ clearInterval(reminderTimer); reminderTimer=null; }
+  $('remStatus').textContent='สถานะ: ปิดอยู่';
+  toast('ปิดการเตือนแล้ว');
+}
+function startReminderLoop(){
+  if(reminderTimer) clearInterval(reminderTimer);
+  reminderTimer=setInterval(checkReminders,20000);
+  checkReminders();
+}
+function checkReminders(){
+  if(get(LS.remOn)!=='1') return;
+  const now=new Date();
+  const hhmm=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  const today=now.toDateString();
+  const am=get(LS.remAM), pm=get(LS.remPM);
+  if(am&&hhmm===am&&firedToday.am!==today){ firedToday.am=today; notify('☀️ ถึงเวลาสกินแคร์เช้าแล้ว','ทำตามรูทีน AM ของคุณได้เลย'); }
+  if(pm&&hhmm===pm&&firedToday.pm!==today){ firedToday.pm=today; notify('🌙 ถึงเวลาสกินแคร์เย็นแล้ว','ทำตามรูทีน PM ของคุณได้เลย'); }
+}
+function notify(title,body){
+  try{ if(Notification.permission==='granted') new Notification(title,{body}); else toast(title); }
+  catch(e){ toast(title); }
+}
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
 </body>
 </html>
