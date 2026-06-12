@@ -266,6 +266,19 @@
   .wish-item{display:flex;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;background:var(--panel-2);}
   .wish-item .wn{font-weight:600;font-size:13.5px;}
 
+  /* ── My Products ── */
+  .prod-item{display:flex;gap:10px;align-items:center;padding:9px 11px;border:1px solid var(--line);border-radius:10px;margin-bottom:7px;background:var(--panel-2);}
+  .prod-item.use{border-color:var(--sage-deep);background:rgba(158,200,168,.06);}
+  .prod-check{width:20px;height:20px;flex:none;cursor:pointer;accent-color:var(--sage-deep);}
+  .prod-item .pn{flex:1;min-width:0;font-size:13.5px;font-weight:600;}
+  .prod-item .pn .pb{color:var(--ink-faint);font-weight:400;font-size:12px;}
+  .prod-when{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:999px;border:0;cursor:pointer;font-family:inherit;}
+  .prod-when.am{background:rgba(227,193,129,.18);color:var(--gold);}
+  .prod-when.pm{background:rgba(124,150,232,.18);color:#9db0ee;}
+  .prod-when.both{background:rgba(158,200,168,.18);color:var(--sage);}
+  .prod-rm{background:transparent;border:0;color:var(--ink-faint);cursor:pointer;font-size:14px;flex:none;}
+  .prod-rm:hover{color:var(--danger);}
+
   .syn-item{
     display:flex;gap:9px;align-items:flex-start;padding:9px 12px;
     border:1px solid var(--line);border-radius:10px;margin-bottom:7px;
@@ -374,6 +387,24 @@
         <button class="btn primary sm" onclick="saveProfile('routine')">💾 บันทึก Routine</button>
         <span class="saved-flash" id="flash-routine">บันทึกแล้ว ✓</span>
       </div>
+    </div>
+
+    <div class="card">
+      <h2><span class="ic">🧴</span> My Products</h2>
+      <p class="sub">คลังสกินแคร์ที่คุณมี — เพิ่มเองหรือเก็บจาก Product Scanner · ติ๊ก ✓ ตัวที่ใช้อยู่แล้วให้ AI จัดเป็นรูทีน</p>
+      <div class="row">
+        <input type="text" id="productInput" placeholder="พิมพ์ชื่อสินค้า เช่น CeraVe Foaming Cleanser แล้วกด Enter" style="flex:1;min-width:200px;" />
+        <button class="btn sm" onclick="addProductManual()">+ เพิ่ม</button>
+        <button class="btn sm" onclick="importProductsFromRoutine()">⬆️ ดึงจาก Routine</button>
+      </div>
+      <div id="productList" style="margin-top:12px;"></div>
+      <div class="row" id="productActions" style="margin-top:12px;display:none;">
+        <button class="btn sage sm" onclick="buildRoutineFromProducts()">🪄 สร้างรูทีนจากตัวที่เลือก</button>
+        <button class="btn ghost sm" onclick="selectAllProducts(true)">เลือกทั้งหมด</button>
+        <button class="btn ghost sm" onclick="selectAllProducts(false)">ไม่เลือกเลย</button>
+      </div>
+      <div id="statusProd"></div>
+      <div id="prodRoutinePreview"></div>
     </div>
 
     <div class="card">
@@ -649,7 +680,7 @@ const LS = {
   routineAM:'sk_rAM', routinePM:'sk_rPM',
   skin:'sk_skin', goals:'sk_goals', blacklist:'sk_blacklist',
   history:'sk_history', remAM:'sk_remAM', remPM:'sk_remPM', remOn:'sk_remOn',
-  wishlist:'sk_wishlist'
+  wishlist:'sk_wishlist', products:'sk_products'
 };
 const $ = id => document.getElementById(id);
 function get(k,def=''){ try{ const v=localStorage.getItem(k); return v===null?def:v; }catch(e){ return def; } }
@@ -664,6 +695,7 @@ let pendingRoutineUpdate = null; // { am:[], pm:[] } waiting for confirm
 let pendingSugRoutine = null;   // { am:[], pm:[] } from AI Suggestions
 let sugChatHistory = [];        // AI Suggestions chat, session-only
 let lastRecItems = [];          // flat list of current recommendations (for wishlist)
+let pendingProdRoutine = null;  // { am:[], pm:[] } from My Products → routine
 
 /* Shared expert persona — prepended to every prompt for consistent, high-level output */
 const EXPERT_PERSONA =
@@ -698,12 +730,14 @@ function init(){
   renderBlacklist();
   renderHistory();
   renderWishlist();
+  renderProducts();
   refreshKeyDot();
   if(!get(LS.key)) $('cfg').open = true;
 
   $('apiKey').addEventListener('input', e=>{ set(LS.key,e.target.value.trim()); refreshKeyDot(); });
   $('model').addEventListener('change', e=>set(LS.model,e.target.value));
   $('blacklistInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addBlacklist(); }});
+  $('productInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addProductManual(); }});
   $('chatInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendChat(); }});
   $('sugChatInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendSugChat(); }});
 
@@ -755,6 +789,144 @@ function renderBlacklist(){
   if(!arr.length){ c.innerHTML='<span class="hint">ยังไม่มีรายการ</span>'; return; }
   c.innerHTML = arr.map((t,i)=>`<span class="pill">${esc(t)} <span class="x" onclick="removeBlacklist(${i})">✕</span></span>`).join('');
 }
+
+/* ============ MY PRODUCTS ============ */
+function getProducts(){ try{ return JSON.parse(get(LS.products,'[]')); }catch(e){ return []; } }
+function setProducts(arr){ set(LS.products, JSON.stringify(arr)); }
+function prodKey(name,brand){ return ((name||'')+'|'+(brand||'')).toLowerCase().trim(); }
+
+function addProduct(name, brand, when){
+  name=(name||'').trim(); brand=(brand||'').trim();
+  if(!name) return false;
+  const arr=getProducts();
+  if(arr.some(p=>prodKey(p.name,p.brand)===prodKey(name,brand))) return false; // dup
+  arr.push({ id:Date.now()+Math.random(), name, brand, when:when||'Both', use:true });
+  setProducts(arr); renderProducts();
+  return true;
+}
+function addProductManual(){
+  const inp=$('productInput'); const v=inp.value.trim();
+  if(!v){ return; }
+  if(addProduct(v,'','Both')){ inp.value=''; toast('เพิ่มสินค้าแล้ว','ok'); }
+  else { inp.value=''; toast('มีสินค้านี้อยู่แล้ว'); }
+}
+// pull current AM/PM routine lines into My Products (dedup, set when AM/PM/Both)
+function importProductsFromRoutine(){
+  const amLines=parseRoutineLines($('routineAM').value);
+  const pmLines=parseRoutineLines($('routinePM').value);
+  if(!amLines.length && !pmLines.length){ toast('ยังไม่มีรูทีนให้ดึง','bad'); return; }
+
+  // determine when for each unique name
+  const lower=s=>s.toLowerCase().trim();
+  const amSet=new Set(amLines.map(lower)), pmSet=new Set(pmLines.map(lower));
+  const seen=new Map(); // key -> {name, when}
+  [...amLines,...pmLines].forEach(name=>{
+    const k=lower(name);
+    if(seen.has(k)) return;
+    const when = amSet.has(k)&&pmSet.has(k) ? 'Both' : amSet.has(k) ? 'AM' : 'PM';
+    seen.set(k,{ name, when });
+  });
+
+  let added=0, dup=0;
+  seen.forEach(v=>{ if(addProduct(v.name,'',v.when)) added++; else dup++; });
+  if(added) toast(`เพิ่ม ${added} สินค้าเข้าคลัง${dup?` (ข้ามซ้ำ ${dup})`:''} ✓`,'ok');
+  else toast('สินค้าทั้งหมดมีในคลังอยู่แล้ว');
+}
+
+function removeProduct(id){ setProducts(getProducts().filter(p=>p.id!==id)); renderProducts(); }
+function toggleProductUse(id){
+  const arr=getProducts(); const p=arr.find(x=>x.id===id);
+  if(p){ p.use=!p.use; setProducts(arr); renderProducts(); }
+}
+function cycleProductWhen(id){
+  const order=['AM','PM','Both']; const arr=getProducts(); const p=arr.find(x=>x.id===id);
+  if(p){ const i=order.indexOf(p.when); p.when=order[(i+1)%order.length]; setProducts(arr); renderProducts(); }
+}
+function selectAllProducts(on){
+  const arr=getProducts(); arr.forEach(p=>p.use=!!on); setProducts(arr); renderProducts();
+}
+function whenClass(w){ const v=(w||'both').toLowerCase(); return v==='am'?'am':v==='pm'?'pm':'both'; }
+function whenLabel(w){ const v=(w||'').toLowerCase(); return v==='am'?'AM':v==='pm'?'PM':'AM+PM'; }
+function renderProducts(){
+  const arr=getProducts(); const c=$('productList');
+  $('productActions').style.display = arr.length?'flex':'none';
+  if(!arr.length){ c.innerHTML='<div class="empty">ยังไม่มีสินค้าในคลัง — เพิ่มเอง หรือเก็บจาก Product Scanner</div>'; return; }
+  c.innerHTML=arr.map(p=>`
+    <div class="prod-item${p.use?' use':''}">
+      <input type="checkbox" class="prod-check" ${p.use?'checked':''} onclick="toggleProductUse(${p.id})" title="ใช้อยู่">
+      <div class="pn">${esc(p.name)}${p.brand?` <span class="pb">${esc(p.brand)}</span>`:''}</div>
+      <button class="prod-when ${whenClass(p.when)}" onclick="cycleProductWhen(${p.id})" title="แตะเพื่อสลับ AM/PM/Both">${whenLabel(p.when)}</button>
+      <button class="prod-rm" onclick="removeProduct(${p.id})" title="ลบ">✕</button>
+    </div>`).join('');
+}
+
+async function buildRoutineFromProducts(){
+  const selected=getProducts().filter(p=>p.use);
+  if(!selected.length){ toast('ติ๊กเลือกสินค้าที่ใช้อยู่ก่อน','bad'); return; }
+
+  const skin=get(LS.skin), goals=get(LS.goals);
+  const list=selected.map(p=>`- ${p.name}${p.brand?' ('+p.brand+')':''} [ผู้ใช้ระบุ: ${whenLabel(p.when)}]`).join('\n');
+
+  $('statusProd').innerHTML='<div class="loading"><div class="spin"></div> กำลังจัดสินค้าที่เลือกเป็นรูทีน…</div>';
+  $('prodRoutinePreview').innerHTML='';
+
+  const prompt=
+`${EXPERT_PERSONA}
+
+งาน: จัดสินค้าต่อไปนี้ที่ผู้ใช้มีและเลือกใช้ ให้เป็นรูทีนเช้า/เย็นที่ถูกลำดับ
+หลักการ: ล้างหน้า → toner → essence → serum (บางไปหนัก) → eye cream → moisturizer → sunscreen (เช้าเท่านั้น) / oil หรือ sleeping mask (กลางคืน)
+ถ้าผู้ใช้ระบุ AM/PM มาแล้วให้เคารพ ยกเว้นขัดหลักการชัดเจน (เช่น sunscreen ต้องเช้า, retinol ควรกลางคืน)
+
+สภาพผิว: ${skin||'(ไม่ระบุ)'}
+เป้าหมาย: ${goals||'(ไม่ระบุ)'}
+สินค้าที่เลือกใช้:
+${list}
+
+ตอบ JSON เท่านั้น:
+{
+  "am": ["ชื่อสินค้า step 1", "step 2", ...],
+  "pm": ["ชื่อสินค้า step 1", ...],
+  "note": "อธิบายสั้น ๆ เหตุผลการจัดลำดับ และคำเตือน interaction ถ้ามี (เช่น อย่าใช้ retinol คู่ AHA)"
+}`;
+
+  try{
+    const out=await callGemini(prompt,[]);
+    const data=parseJSON(out);
+    const am=(data.am||[]).filter(Boolean), pm=(data.pm||[]).filter(Boolean);
+    if(!am.length && !pm.length) throw new Error('จัดรูทีนไม่สำเร็จ');
+    pendingProdRoutine={ am, pm };
+    const col=steps=>steps.map((s,i)=>`<div>${i+1}. ${esc(s)}</div>`).join('');
+    $('prodRoutinePreview').innerHTML=`
+      <div class="reseq-preview">
+        <div class="rp-head">🪄 รูทีนที่จัดจากสินค้าของคุณ</div>
+        <div class="rp-cols">
+          <div class="rp-col"><h4>☀️ AM เช้า</h4>${col(am)||'<span style="color:var(--ink-faint);">(ไม่มี)</span>'}</div>
+          <div class="rp-col"><h4>🌙 PM เย็น</h4>${col(pm)||'<span style="color:var(--ink-faint);">(ไม่มี)</span>'}</div>
+        </div>
+        ${data.note?`<div style="padding:8px 12px;font-size:12px;color:var(--ink-dim);border-top:1px solid var(--line);">💡 ${esc(data.note)}</div>`:''}
+        <div class="reseq-confirm-row">
+          <button class="btn sage sm" onclick="confirmProdRoutine()">✅ บันทึกเป็น My Routine</button>
+          <button class="btn ghost sm" onclick="cancelProdRoutine()">ยกเลิก</button>
+        </div>
+      </div>`;
+    $('statusProd').innerHTML='';
+  }catch(err){
+    $('statusProd').innerHTML=`<div class="errbox">⚠️ ${esc(err.message)}</div>`;
+  }
+}
+function confirmProdRoutine(){
+  if(!pendingProdRoutine){ toast('ไม่พบข้อมูล','bad'); return; }
+  const fmt=arr=>arr.map((l,i)=>`${i+1}. ${l}`).join('\n');
+  $('routineAM').value=fmt(pendingProdRoutine.am);
+  $('routinePM').value=fmt(pendingProdRoutine.pm);
+  set(LS.routineAM,$('routineAM').value);
+  set(LS.routinePM,$('routinePM').value);
+  pendingProdRoutine=null;
+  $('prodRoutinePreview').innerHTML='';
+  flash('routine');
+  toast('อัปเดต My Routine แล้ว ✓','ok');
+}
+function cancelProdRoutine(){ pendingProdRoutine=null; $('prodRoutinePreview').innerHTML=''; }
 
 function setupDrop(dropId,inputId,bufKey){
   const drop=$(dropId), input=$(inputId);
@@ -1082,9 +1254,17 @@ function renderSingle(d){
     </div>
     <div class="add-routine-bar" id="addRoutineBar">
       <button class="btn sage" onclick="addToRoutine()">➕ เพิ่ม ${productLabel} เข้า My Routine</button>
+      <button class="btn sm" onclick="addScanToProducts()">🧴 เก็บเข้า My Products</button>
       <div class="add-routine-status" id="addRoutineStatus"></div>
     </div>`;
   $('scanOutput').innerHTML=html;
+}
+
+// add the currently-scanned single product into My Products inventory
+function addScanToProducts(){
+  if(!lastScanData || lastScanData.type!=='single'){ toast('ไม่พบข้อมูลสินค้า','bad'); return; }
+  if(addProduct(lastScanData.name||'สินค้า', lastScanData.brand||'', 'Both')) toast('เก็บเข้า My Products แล้ว ✓','ok');
+  else toast('มีสินค้านี้ใน My Products อยู่แล้ว');
 }
 
 function renderCompare(d){
