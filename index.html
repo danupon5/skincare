@@ -665,6 +665,20 @@ let pendingSugRoutine = null;   // { am:[], pm:[] } from AI Suggestions
 let sugChatHistory = [];        // AI Suggestions chat, session-only
 let lastRecItems = [];          // flat list of current recommendations (for wishlist)
 
+/* Shared expert persona — prepended to every prompt for consistent, high-level output */
+const EXPERT_PERSONA =
+`บทบาท: คุณคือ "ดร.สกิน" ที่ปรึกษาสกินแคร์ระดับผู้เชี่ยวชาญ ผสานความรู้ของแพทย์ผิวหนัง (board-certified dermatologist) และนักเคมีเครื่องสำอาง (cosmetic chemist) ประสบการณ์คลินิกและตลาดสกินแคร์ไทยกว่า 15 ปี
+
+หลักการวิเคราะห์:
+- ยึดหลักฐานเชิงวิทยาศาสตร์ (evidence-based) อ้างอิงความเข้มข้นที่ออกฤทธิ์จริง (% active) และ pH ที่เหมาะสม
+- เข้าใจ INCI เชิงลึก: หน้าที่ส่วนผสม, ความเข้ากันได้, สารก่อระคายเคือง (fragrance, essential oil, alcohol denat.)
+- รู้ interaction สำคัญ: Retinoid+AHA/BHA, Vitamin C+Niacinamide, Benzoyl Peroxide+Retinol, การซ้อน active เกินจำเป็น
+- คำนึงถึง skin barrier, ผิวแพ้ง่าย, แยก purging vs breakout, ลำดับ introduce active ใหม่ทีละตัว
+- บริบทไทย: อากาศร้อนชื้น แดดจัด (เน้น SPF), แบรนด์/ราคาที่หาซื้อได้จริง (Watsons, Eveandboy, Shopee, Lazada)
+- เตือนให้พบแพทย์เมื่อจำเป็น (สิวอักเสบรุนแรง, ผื่นแพ้, การตั้งครรภ์กับ retinoid/กรดบางชนิด)
+
+มาตรฐานคำตอบ: ตรงประเด็น มีเหตุผลรองรับทุกคำแนะนำ ใช้ภาษาเข้าใจง่าย ไม่โอ้อวดเกินจริง และถ้าไม่มั่นใจชื่อสินค้า/ส่วนผสมให้ระบุชัดว่าเป็นการประมาณ`;
+
 let toastT=null;
 function toast(msg,kind=''){
   const t=$('toast'); t.textContent=msg; t.className='toast show '+kind;
@@ -888,7 +902,9 @@ async function buildRoutine(){
 
   const skin=get(LS.skin), goals=get(LS.goals);
   const prompt=
-`คุณคือผู้เชี่ยวชาญด้านสกินแคร์ ดูรูปผลิตภัณฑ์ที่แนบมาทั้งหมด (อาจมีหลายชิ้นในรูปเดียวหรือหลายรูป)
+`${EXPERT_PERSONA}
+
+งาน: ดูรูปผลิตภัณฑ์ที่แนบมาทั้งหมด (อาจมีหลายชิ้นในรูปเดียวหรือหลายรูป)
 ระบุผลิตภัณฑ์แต่ละชิ้น ถ้าไม่แน่ใจชื่อให้ใช้ web search ช่วย แล้วจัดลำดับการทาที่ถูกต้อง
 (หลักการ: ทำความสะอาด → toner/essence → serum → eye cream → moisturizer → sunscreen เฉพาะเช้า; เนื้อบางไปเนื้อหนัก)
 
@@ -981,7 +997,9 @@ async function scanProduct(){
     let data;
     if(scanMode==='compare'){
       const prompt=
-`คุณคือผู้เชี่ยวชาญสกินแคร์ มีรูปสินค้า 2 ชุด: ชุดแรกคือสินค้า A ชุดที่สองคือสินค้า B
+`${EXPERT_PERSONA}
+
+งาน: มีรูปสินค้า 2 ชุด: ชุดแรกคือสินค้า A ชุดที่สองคือสินค้า B
 ถ้าไม่แน่ใจชื่อหรือส่วนผสม ให้ค้นข้อมูลเพิ่ม
 ${ctx}
 
@@ -1000,7 +1018,9 @@ ${ctx}
       saveHistory({ kind:'compare', title:`${(data.a&&data.a.name)||'A'} vs ${(data.b&&data.b.name)||'B'}`, thumb:imgs.C1[0]||imgs.C2[0]||'', data });
     }else{
       const prompt=
-`คุณคือผู้เชี่ยวชาญสกินแคร์ ดูรูปสินค้าที่แนบมา (อาจหลายมุมของชิ้นเดียวกัน)
+`${EXPERT_PERSONA}
+
+งาน: ดูรูปสินค้าที่แนบมา (อาจหลายมุมของชิ้นเดียวกัน)
 ระบุสินค้าและส่วนผสมสำคัญ ถ้าไม่แน่ใจให้ค้นข้อมูลเพิ่มก่อนสรุป
 วิเคราะห์ว่าควรเพิ่มเข้ารูทีนผู้ใช้ได้ไหม / ควรแทนที่สเต็ปไหน / มี conflict ไหม / มีส่วนผสมใน blacklist ไหม
 ${ctx}
@@ -1109,7 +1129,9 @@ function initChat(scanData, userCtx){
     : `${scanData.brand?scanData.brand+' ':''}${scanData.name||'สินค้า'}`;
 
   // System context as first user message (will be hidden from display)
-  const systemMsg = `คุณคือผู้เชี่ยวชาญสกินแคร์ ตอบคำถามเกี่ยวกับสินค้า: ${productName}
+  const systemMsg = `${EXPERT_PERSONA}
+
+ตอบคำถามเกี่ยวกับสินค้า: ${productName}
 ผลการวิเคราะห์สินค้า: ${JSON.stringify(scanData)}
 ${userCtx}
 ตอบเป็นภาษาไทย กระชับ เป็นมิตร`;
@@ -1234,7 +1256,9 @@ async function addToRoutineProduct(productName, brand, scanData){
   const skinFit = scanData && scanData.skin_fit ? scanData.skin_fit : '';
 
   const prompt =
-`คุณคือผู้เชี่ยวชาญสกินแคร์ ช่วยเพิ่มสินค้าใหม่เข้ารูทีนและจัดเรียงลำดับใหม่ให้ถูกต้อง
+`${EXPERT_PERSONA}
+
+งาน: ช่วยเพิ่มสินค้าใหม่เข้ารูทีนและจัดเรียงลำดับใหม่ให้ถูกต้อง
 
 รูทีนปัจจุบัน:
 เช้า (AM): ${currentAM}
@@ -1347,7 +1371,9 @@ async function analyzeProfile(){
   $('sugOutput').style.display='none';
 
   const prompt=
-`คุณคือผู้เชี่ยวชาญสกินแคร์ระดับสูง วิเคราะห์โปรไฟล์ผิวต่อไปนี้อย่างละเอียด:
+`${EXPERT_PERSONA}
+
+งาน: วิเคราะห์โปรไฟล์ผิวต่อไปนี้อย่างละเอียดเชิงลึก:
 
 สภาพผิว: ${skin||'(ไม่ระบุ)'}
 เป้าหมาย: ${goals||'(ไม่ระบุ)'}
@@ -1546,7 +1572,9 @@ async function refreshRecommendations(){
   $('statusRec').innerHTML='<div class="loading"><div class="spin"></div> กำลังหาสินค้าแนะนำชุดใหม่…</div>';
 
   const prompt=
-`คุณคือผู้เชี่ยวชาญสกินแคร์ แนะนำสินค้าที่เหมาะกับผู้ใช้นี้ โดยขอ "ชุดใหม่" ที่แตกต่างจากรอบก่อน
+`${EXPERT_PERSONA}
+
+งาน: แนะนำสินค้าที่เหมาะกับผู้ใช้นี้ โดยขอ "ชุดใหม่" ที่แตกต่างจากรอบก่อน
 
 สภาพผิว: ${skin||'(ไม่ระบุ)'}
 เป้าหมาย: ${goals||'(ไม่ระบุ)'}
@@ -1643,7 +1671,9 @@ function refreshWishBtns(){
 
 /* ── AI Suggestions Chat ── */
 function initSugChat(data, userCtx){
-  const ctx=`คุณคือผู้เชี่ยวชาญสกินแคร์ ตอบคำถามต่อยอดจากผลวิเคราะห์โปรไฟล์ผิวของผู้ใช้
+  const ctx=`${EXPERT_PERSONA}
+
+ตอบคำถามต่อยอดจากผลวิเคราะห์โปรไฟล์ผิวของผู้ใช้
 ผลวิเคราะห์ล่าสุด: ${JSON.stringify(data)}
 ข้อมูลผู้ใช้: สภาพผิว ${userCtx.skin||'(ไม่ระบุ)'} | เป้าหมาย ${userCtx.goals||'(ไม่ระบุ)'}
 รูทีนเช้า: ${userCtx.routineAM} | รูทีนเย็น: ${userCtx.routinePM}
