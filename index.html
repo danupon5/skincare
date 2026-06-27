@@ -1860,13 +1860,14 @@ async function scanProduct(){
 สินค้า A: ${srcA}
 สินค้า B: ${srcB}
 ถ้าไม่แน่ใจชื่อหรือส่วนผสม ให้ค้นข้อมูลเพิ่ม (web search) ก่อนสรุป
+สำหรับแต่ละตัว ให้ระบุ "สารเด่น/จุดขาย (hero) ที่แบรนด์ชู" ด้วย เช่น โสมแดงของ Sulwhasoo, snail ของ COSRX
 ${ctx}
 
 ตอบเป็น JSON เท่านั้น:
 {
   "type":"compare",
-  "a":{ "name":"", "brand":"", "summary":"จุดเด่นสั้นๆ", "key_ingredients":["ส่วนผสมเด่น 2-4 ตัว"], "pros":["ข้อดี"], "cons":["ข้อด้อย"] },
-  "b":{ "name":"", "brand":"", "summary":"จุดเด่นสั้นๆ", "key_ingredients":["ส่วนผสมเด่น 2-4 ตัว"], "pros":["ข้อดี"], "cons":["ข้อด้อย"] },
+  "a":{ "name":"", "brand":"", "summary":"จุดเด่นสั้นๆ", "hero":["สารเด่น/จุดขายที่แบรนด์ชู"], "key_ingredients":["ส่วนผสมเด่น 2-4 ตัว"], "pros":["ข้อดี"], "cons":["ข้อด้อย"] },
+  "b":{ "name":"", "brand":"", "summary":"จุดเด่นสั้นๆ", "hero":["สารเด่น/จุดขายที่แบรนด์ชู"], "key_ingredients":["ส่วนผสมเด่น 2-4 ตัว"], "pros":["ข้อดี"], "cons":["ข้อด้อย"] },
   "winner":"A" | "B" | "ขึ้นอยู่กับ",
   "reason":"เหตุผลเปรียบเทียบโดยอิงผิว/เป้าหมาย/รูทีนของผู้ใช้ 2-4 ประโยค",
   "blacklist_hits":["ส่วนผสมต้องห้ามที่เจอ ถ้ามี"]
@@ -1881,8 +1882,11 @@ ${ctx}
 `${EXPERT_PERSONA}
 
 งาน: ${src}
-ระบุสินค้าและวิเคราะห์ส่วนผสมแบบละเอียด ถ้าไม่แน่ใจชื่อ/ส่วนผสม ให้ค้นข้อมูลเพิ่ม (web search จาก INCIDecoder/แบรนด์/Watsons) ก่อนสรุป
-แล้วเช็คกับรูทีนปัจจุบันของผู้ใช้ว่า: มีส่วนผสม/หน้าที่ทับซ้อนกับตัวไหน, ชน (conflict) กับตัวไหน, ควรแทรกตรงไหน และมีทางเลือกอื่นที่ดีกว่า/ถูกกว่าไหม
+ขั้นตอน:
+1) ระบุก่อนว่าผลิตภัณฑ์นี้ "ชูจุดขาย/สารเด่น (hero / signature)" อะไรที่แบรนด์โฆษณา เช่น โสมแดงเกาหลีของ Sulwhasoo, snail ของ COSRX, centella/cica, vitamin C, retinol ฯลฯ
+2) ใช้ web search หา INCI จริง (INCIDecoder/แบรนด์/Watsons/Olive Young) แล้ววิเคราะห์ส่วนผสมให้ครบและละเอียด
+3) สำคัญมาก: สารเด่น/จุดขายของแบรนด์ "ต้องปรากฏ" ในรายการ ingredients ด้วยชื่อ INCI ที่ถูกต้อง — ห้ามลืมหรือมองข้าม (เช่น Sulwhasoo ต้องมีสารสกัดโสม Panax Ginseng Root Extract)
+4) เช็คกับรูทีนปัจจุบันของผู้ใช้ว่า: มีส่วนผสม/หน้าที่ทับซ้อนกับตัวไหน, ชน (conflict) กับตัวไหน, ควรแทรกตรงไหน และมีทางเลือกอื่นที่ดีกว่า/ถูกกว่าไหม
 ${ctx}
 
 ตอบเป็น JSON เท่านั้น:
@@ -1893,6 +1897,7 @@ ${ctx}
   "price":"ราคาโดยประมาณในไทย เช่น ~590 บาท หรือ 'ไม่พบข้อมูลราคา'",
   "texture":"เนื้อสัมผัส เช่น เจล/ครีม/น้ำ หรือ '-'",
   "summary_benefit":"ใช้แล้วได้อะไร 1-2 ประโยค",
+  "hero":[ { "name":"สารเด่น/จุดขายที่แบรนด์ชู เช่น สารสกัดโสมแดง", "inci":"ชื่อ INCI เช่น Panax Ginseng Root Extract", "why":"ทำไมเป็นจุดขาย/ช่วยอะไร" } ],
   "best_for":["ปัญหา/เป้าหมายผิวที่เหมาะ เช่น สิว, รอยดำ"],
   "skin_fit":"เหมาะกับผิวแบบไหน / ไม่เหมาะกับใคร",
   "ingredients":[ { "name":"ชื่อส่วนผสม", "inci":"ชื่อ INCI", "benefit":"ช่วยอะไร", "irritation":"low|medium|high", "actives_tag": null } ],
@@ -1910,6 +1915,7 @@ ${ctx}
   },
   "alternatives":[ { "name":"", "brand":"", "why":"ทำไมน่าสนใจ/ดีกว่า/ถูกกว่า" } ]
 }
+- hero: สารเด่นที่แบรนด์ใช้เป็นจุดขายของผลิตภัณฑ์นี้ และทุกตัวต้องมีอยู่ใน ingredients ด้วย
 - ingredients: ลิสต์ส่วนผสมสำคัญให้ครบเท่าที่ทราบ พร้อมประโยชน์รายตัว
 - alternatives: 1-3 ตัว ที่เหมาะกับผิว/เป้าหมายของผู้ใช้`;
       const out=await callGemini(prompt, imgs.S.length?['S']:[]);
@@ -1939,6 +1945,7 @@ function renderSingle(d){
     return `<div class="ing"><span class="k">${esc(x.name||'-')}</span><span>${esc(x.benefit||'')}${irrTag}</span></div>`;
   }).join('');
   const acts=(d.key_actives||[]).filter(a=>a&&a.name).map(a=>`<span class="ing-target" title="${esc(a.benefit||'')}">${esc(a.name)}${a.percent&&a.percent!=='-'?' '+esc(a.percent):''}</span>`).join('');
+  const heroes=(d.hero||[]).filter(h=>h&&(h.name||h.inci));
   const best=(d.best_for||[]).filter(Boolean).map(x=>`<span class="ing-target">${esc(x)}</span>`).join('');
   const pros=(d.pros||[]).filter(Boolean), cons=(d.cons||[]).filter(Boolean);
   const m=d.routine_fit||d.match||{};   // back-compat with old saved scans (match)
@@ -1949,6 +1956,7 @@ function renderSingle(d){
     <h2 style="margin-bottom:6px;"><span class="ic">🧴</span> ${esc(d.name||'สินค้า')}</h2>
     <p class="sub">${esc(d.brand||'')}${d.price?' · <span class="price">'+esc(d.price)+'</span>':''}${d.texture?' · '+esc(d.texture):''}</p>
     ${d.summary_benefit?`<div class="ing-summary">💡 ${esc(d.summary_benefit)}</div>`:''}
+    ${heroes.length?`<div class="hero-row"><span class="hero-lbl">⭐ จุดขายหลัก</span>${heroes.map(h=>`<span class="hero-chip" title="${esc(h.why||'')}">${esc(h.name||h.inci)}</span>`).join('')}</div>`:''}
     ${best?`<div class="ing-meta-row" style="margin-bottom:8px;"><b style="font-size:11.5px;color:var(--ink-dim);align-self:center;">เหมาะกับ:</b> ${best}</div>`:''}
     ${d.skin_fit?`<div class="meta" style="font-size:13px;margin-bottom:10px;">💧 <b>เหมาะกับผิว:</b> ${esc(d.skin_fit)}</div>`:''}
     ${acts?`<div class="ing-meta-row" style="margin-bottom:8px;"><b style="font-size:11.5px;color:var(--ink-dim);align-self:center;">Active หลัก:</b> ${acts}</div>`:''}
@@ -1999,11 +2007,13 @@ function cmpAddBtn(label, name, brand){
 }
 function cmpSide(side, p, accent){
   const ki=(p.key_ingredients||[]).filter(Boolean).map(x=>`<span class="ing-target">${esc(x)}</span>`).join('');
+  const hero=(p.hero||[]).filter(Boolean).map(x=>`<span class="hero-chip">${esc(x)}</span>`).join('');
   const pros=(p.pros||[]).filter(Boolean), cons=(p.cons||[]).filter(Boolean);
   return `<div class="step">
     <div class="head"><span class="num"${accent?` style="background:linear-gradient(135deg,var(--sage-deep),var(--sage));color:#10231a;"`:''}>${side}</span><span class="nm">${esc(p.name||('สินค้า '+side))}</span></div>
     <div class="meta">${esc(p.brand||'')}</div>
     ${p.summary?`<div class="meta">${esc(p.summary)}</div>`:''}
+    ${hero?`<div class="hero-row" style="margin-top:6px;"><span class="hero-lbl">⭐</span>${hero}</div>`:''}
     ${ki?`<div class="ing-meta-row" style="margin-top:6px;">${ki}</div>`:''}
     ${pros.length?`<div class="meta" style="margin-top:5px;color:var(--ok);">👍 ${pros.map(esc).join(', ')}</div>`:''}
     ${cons.length?`<div class="meta" style="color:var(--warn);">👎 ${cons.map(esc).join(', ')}</div>`:''}
