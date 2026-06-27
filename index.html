@@ -223,6 +223,20 @@
   .ing-targets{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;}
   .ing-target{font-size:9.5px;padding:1px 6px;border-radius:999px;background:rgba(158,200,168,.14);color:var(--sage);}
   .ing-summary{font-size:12px;color:var(--ink);background:rgba(158,200,168,.08);border:1px solid var(--line);border-radius:9px;padding:8px 11px;margin:0 0 10px;line-height:1.5;}
+  /* ── Scanner rich result ── */
+  .sc-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0;}
+  @media(max-width:520px){ .sc-cols{grid-template-columns:1fr;} }
+  .sc-box{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--panel-2);}
+  .sc-box h4{margin:0 0 6px;font-size:12.5px;}
+  .sc-box ul{margin:0;padding-left:17px;font-size:12.5px;color:var(--ink-dim);line-height:1.6;}
+  .sc-pros h4{color:var(--ok);} .sc-cons h4{color:var(--warn);}
+  .sc-howto{display:flex;flex-wrap:wrap;gap:7px;align-items:center;font-size:12.5px;color:var(--ink-dim);margin-top:4px;}
+  .sc-alt{border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-bottom:7px;background:var(--panel-2);}
+  .sc-alt .an{font-weight:600;font-size:13px;}
+  .sc-alt .aw{font-size:12px;color:var(--ink-dim);margin-top:2px;}
+  .ing .irr{font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;margin-left:6px;}
+  .ing .irr.high{background:rgba(224,138,130,.18);color:var(--danger);}
+  .ing .irr.medium{background:rgba(230,184,106,.18);color:var(--warn);}
   .irr-high{color:var(--danger);font-weight:600;}
   .irr-medium{color:var(--warn);}
   .irr-low{color:var(--ink-dim);}
@@ -594,7 +608,7 @@
   <section class="view" id="view-scanner">
     <div class="card">
       <h2><span class="ic">🔍</span> Product Scanner</h2>
-      <p class="sub">อัปโหลดรูปสินค้าที่สนใจ AI จะวิเคราะห์ส่วนผสม แล้วแมตช์กับโปรไฟล์ผิวของคุณ</p>
+      <p class="sub">พิมพ์ชื่อสินค้า และ/หรือ อัปโหลดรูป — AI จะค้นหา วิเคราะห์ส่วนผสมแบบละเอียด เช็คการทับซ้อน/ชนกับรูทีนของคุณ และแนะนำทางเลือกอื่น</p>
 
       <div class="row" style="margin-bottom:12px;">
         <div class="seg" id="modeSeg">
@@ -604,9 +618,11 @@
       </div>
 
       <div id="singleZone">
+        <label class="fld">🔎 พิมพ์ชื่อสินค้า (ไม่มีรูปก็ได้)</label>
+        <input type="text" id="scanNameS" placeholder="เช่น The Ordinary Niacinamide 10% + Zinc 1%" style="margin-bottom:10px;" />
         <div class="drop" id="dropS">
           <div class="big">🧴</div>
-          <div class="t">แตะเพื่อเลือกรูปสินค้าจาก Gallery</div>
+          <div class="t">หรือแตะเพื่อเลือกรูปสินค้าจาก Gallery</div>
           <div class="s">รูปเดียว หรือหลายมุมของสินค้าเดียวกัน</div>
           <input type="file" id="fileS" accept="image/*" multiple hidden />
         </div>
@@ -617,16 +633,18 @@
         <div class="grid2">
           <div>
             <label class="fld">สินค้า A</label>
+            <input type="text" id="scanNameC1" placeholder="พิมพ์ชื่อสินค้า A (ไม่มีรูปก็ได้)" style="margin-bottom:8px;" />
             <div class="drop" id="dropC1">
-              <div class="big">🅰️</div><div class="t">รูปสินค้า A</div>
+              <div class="big">🅰️</div><div class="t">หรือใส่รูปสินค้า A</div>
               <input type="file" id="fileC1" accept="image/*" multiple hidden />
             </div>
             <div class="thumbs" id="thumbsC1"></div>
           </div>
           <div>
             <label class="fld">สินค้า B</label>
+            <input type="text" id="scanNameC2" placeholder="พิมพ์ชื่อสินค้า B (ไม่มีรูปก็ได้)" style="margin-bottom:8px;" />
             <div class="drop" id="dropC2">
-              <div class="big">🅱️</div><div class="t">รูปสินค้า B</div>
+              <div class="big">🅱️</div><div class="t">หรือใส่รูปสินค้า B</div>
               <input type="file" id="fileC2" accept="image/*" multiple hidden />
             </div>
             <div class="thumbs" id="thumbsC2"></div>
@@ -870,6 +888,7 @@ function init(){
   $('chatInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendChat(); }});
   $('sugChatInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendSugChat(); }});
   $('cfChatInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendConflictChat(); }});
+  ['scanNameS','scanNameC1','scanNameC2'].forEach(id=>$(id).addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); scanProduct(); }}));
 
   setupTabs();
   setupDrop('dropB','fileB','B');
@@ -1522,7 +1541,10 @@ function renderThumbs(bufKey){
 function removeImg(bufKey,i){ imgs[bufKey].splice(i,1); renderThumbs(bufKey); }
 function clearImgs(bufKey){ imgs[bufKey]=[]; renderThumbs(bufKey); }
 function clearBuilderInputs(){ imgs.B=[]; renderThumbs('B'); $('listB').value=''; }
-function clearScanImgs(){ imgs.S=[];imgs.C1=[];imgs.C2=[]; renderThumbs('S');renderThumbs('C1');renderThumbs('C2'); }
+function clearScanImgs(){
+  imgs.S=[];imgs.C1=[];imgs.C2=[]; renderThumbs('S');renderThumbs('C1');renderThumbs('C2');
+  ['scanNameS','scanNameC1','scanNameC2'].forEach(id=>{ const el=$(id); if(el) el.value=''; });
+}
 
 function setScanMode(m){
   scanMode=m;
@@ -1765,10 +1787,15 @@ async function scanProduct(){
   const skin=get(LS.skin), goals=get(LS.goals);
   const routine=`เช้า:\n${get(LS.routineAM)||'(ไม่มี)'}\nเย็น:\n${get(LS.routinePM)||'(ไม่มี)'}`;
 
+  const nameS=($('scanNameS').value||'').trim();
+  const nameC1=($('scanNameC1').value||'').trim();
+  const nameC2=($('scanNameC2').value||'').trim();
+
   if(scanMode==='compare'){
-    if(!imgs.C1.length||!imgs.C2.length){ toast('กรุณาใส่รูปทั้งสินค้า A และ B','bad'); return; }
+    const aOk=imgs.C1.length||nameC1, bOk=imgs.C2.length||nameC2;
+    if(!aOk||!bOk){ toast('ใส่ชื่อหรือรูปทั้งสินค้า A และ B','bad'); return; }
   }else{
-    if(!imgs.S.length){ toast('กรุณาอัปโหลดรูปสินค้าก่อน','bad'); return; }
+    if(!imgs.S.length && !nameS){ toast('พิมพ์ชื่อสินค้า หรืออัปโหลดรูปก่อน','bad'); return; }
   }
 
   btn.disabled=true;
@@ -1776,43 +1803,50 @@ async function scanProduct(){
   $('resultS').style.display='none';
   $('chatCard').style.display='none';
 
+  const routineDigest=cachedIngredientDigest();
   const ctx=
 `ข้อมูลผู้ใช้:
 - สภาพผิว: ${skin||'(ไม่ระบุ)'}
 - เป้าหมาย: ${goals||'(ไม่ระบุ)'}
 - รูทีนปัจจุบัน:\n${routine}
-- ส่วนผสมที่แพ้/ต้องเลี่ยง: ${blacklist.length?blacklist.join(', '):'(ไม่มี)'}`;
+- ส่วนผสมที่แพ้/ต้องเลี่ยง: ${blacklist.length?blacklist.join(', '):'(ไม่มี)'}${routineDigest?`
+- ส่วนผสมจริง (INCI) ของสินค้าที่ผู้ใช้ใช้อยู่ (ดึงไว้แล้ว ใช้เช็คทับซ้อน/ชนกันได้แม่นยำ):\n${routineDigest}`:''}`;
 
   try{
     let data;
     if(scanMode==='compare'){
+      const srcA = imgs.C1.length?'(ดูจากรูปสินค้า A ที่แนบ)':`ชื่อที่ผู้ใช้พิมพ์: ${nameC1}`;
+      const srcB = imgs.C2.length?'(ดูจากรูปสินค้า B ที่แนบ)':`ชื่อที่ผู้ใช้พิมพ์: ${nameC2}`;
       const prompt=
 `${EXPERT_PERSONA}
 
-งาน: มีรูปสินค้า 2 ชุด: ชุดแรกคือสินค้า A ชุดที่สองคือสินค้า B
-ถ้าไม่แน่ใจชื่อหรือส่วนผสม ให้ค้นข้อมูลเพิ่ม
+งาน: เปรียบเทียบสินค้า 2 ตัว
+สินค้า A: ${srcA}
+สินค้า B: ${srcB}
+ถ้าไม่แน่ใจชื่อหรือส่วนผสม ให้ค้นข้อมูลเพิ่ม (web search) ก่อนสรุป
 ${ctx}
 
 ตอบเป็น JSON เท่านั้น:
 {
   "type":"compare",
-  "a":{ "name":"", "brand":"", "summary":"จุดเด่นสั้นๆ" },
-  "b":{ "name":"", "brand":"", "summary":"จุดเด่นสั้นๆ" },
+  "a":{ "name":"", "brand":"", "summary":"จุดเด่นสั้นๆ", "key_ingredients":["ส่วนผสมเด่น 2-4 ตัว"], "pros":["ข้อดี"], "cons":["ข้อด้อย"] },
+  "b":{ "name":"", "brand":"", "summary":"จุดเด่นสั้นๆ", "key_ingredients":["ส่วนผสมเด่น 2-4 ตัว"], "pros":["ข้อดี"], "cons":["ข้อด้อย"] },
   "winner":"A" | "B" | "ขึ้นอยู่กับ",
-  "reason":"เหตุผลเปรียบเทียบโดยอิงผิวและเป้าหมายของผู้ใช้ 2-4 ประโยค",
+  "reason":"เหตุผลเปรียบเทียบโดยอิงผิว/เป้าหมาย/รูทีนของผู้ใช้ 2-4 ประโยค",
   "blacklist_hits":["ส่วนผสมต้องห้ามที่เจอ ถ้ามี"]
 }`;
-      const out=await callGemini(prompt,['C1','C2']);
+      const out=await callGemini(prompt, imgs.C1.length||imgs.C2.length?['C1','C2']:[]);
       data=parseJSON(out);
       renderCompare(data);
       saveHistory({ kind:'compare', title:`${(data.a&&data.a.name)||'A'} vs ${(data.b&&data.b.name)||'B'}`, thumb:imgs.C1[0]||imgs.C2[0]||'', data });
     }else{
+      const src = imgs.S.length?'ดูรูปสินค้าที่แนบมา (อาจหลายมุมของชิ้นเดียวกัน)':`ค้นหาสินค้าจากชื่อที่ผู้ใช้พิมพ์: "${nameS}"`;
       const prompt=
 `${EXPERT_PERSONA}
 
-งาน: ดูรูปสินค้าที่แนบมา (อาจหลายมุมของชิ้นเดียวกัน)
-ระบุสินค้าและส่วนผสมสำคัญ ถ้าไม่แน่ใจให้ค้นข้อมูลเพิ่มก่อนสรุป
-วิเคราะห์ว่าควรเพิ่มเข้ารูทีนผู้ใช้ได้ไหม / ควรแทนที่สเต็ปไหน / มี conflict ไหม / มีส่วนผสมใน blacklist ไหม
+งาน: ${src}
+ระบุสินค้าและวิเคราะห์ส่วนผสมแบบละเอียด ถ้าไม่แน่ใจชื่อ/ส่วนผสม ให้ค้นข้อมูลเพิ่ม (web search จาก INCIDecoder/แบรนด์/Watsons) ก่อนสรุป
+แล้วเช็คกับรูทีนปัจจุบันของผู้ใช้ว่า: มีส่วนผสม/หน้าที่ทับซ้อนกับตัวไหน, ชน (conflict) กับตัวไหน, ควรแทรกตรงไหน และมีทางเลือกอื่นที่ดีกว่า/ถูกกว่าไหม
 ${ctx}
 
 ตอบเป็น JSON เท่านั้น:
@@ -1821,18 +1855,28 @@ ${ctx}
   "name":"ชื่อสินค้า",
   "brand":"แบรนด์",
   "price":"ราคาโดยประมาณในไทย เช่น ~590 บาท หรือ 'ไม่พบข้อมูลราคา'",
-  "skin_fit":"เหมาะกับผิวแบบไหน",
-  "ingredients":[ { "name":"ชื่อส่วนผสม", "benefit":"ช่วยอะไร" } ],
+  "texture":"เนื้อสัมผัส เช่น เจล/ครีม/น้ำ หรือ '-'",
+  "summary_benefit":"ใช้แล้วได้อะไร 1-2 ประโยค",
+  "best_for":["ปัญหา/เป้าหมายผิวที่เหมาะ เช่น สิว, รอยดำ"],
+  "skin_fit":"เหมาะกับผิวแบบไหน / ไม่เหมาะกับใคร",
+  "ingredients":[ { "name":"ชื่อส่วนผสม", "inci":"ชื่อ INCI", "benefit":"ช่วยอะไร", "irritation":"low|medium|high", "actives_tag": null } ],
+  "key_actives":[ { "name":"", "type":"retinoid|aha|bha|vitc|niacinamide|other", "percent":"% โดยประมาณ", "benefit":"" } ],
+  "pros":["ข้อดี"],
+  "cons":["ข้อด้อย/ข้อควรระวัง"],
+  "how_to_use":{ "when":"AM|PM|Both", "frequency":"ความถี่ เช่น ทุกวัน / 2-3 ครั้ง/สัปดาห์", "order":"ทาขั้นตอนไหน เช่น หลัง toner ก่อน moisturizer" },
   "blacklist_hits":["ส่วนผสมต้องห้ามที่ตรงกับ blacklist ของผู้ใช้"],
-  "match":{
+  "routine_fit":{
      "verdict":"good" | "warn" | "bad",
      "headline":"สรุปสั้นว่าควรเพิ่ม/แทนที่/เลี่ยง",
-     "add":"เพิ่มเข้ารูทีนได้ไหม อธิบาย",
-     "replace":"ควรแทนที่สเต็ปไหนไหม",
-     "conflict":"มี conflict กับของที่ใช้อยู่ไหม"
-  }
-}`;
-      const out=await callGemini(prompt,['S']);
+     "overlap":"ทับซ้อน/หน้าที่ซ้ำกับตัวไหนในรูทีน (ถ้ามี) — ตัดของเดิมหรือใช้ร่วมแบบจัดลำดับ",
+     "conflict":"ชน/ขัดแย้งกับตัวไหนในรูทีน เพราะอะไร (pH, ผลัดเซลล์เกิน ฯลฯ) ถ้าไม่มีบอกว่าไม่มี",
+     "add":"ถ้าจะเพิ่ม ควรแทรก step ไหน ช่วงเช้า/เย็น"
+  },
+  "alternatives":[ { "name":"", "brand":"", "why":"ทำไมน่าสนใจ/ดีกว่า/ถูกกว่า" } ]
+}
+- ingredients: ลิสต์ส่วนผสมสำคัญให้ครบเท่าที่ทราบ พร้อมประโยชน์รายตัว
+- alternatives: 1-3 ตัว ที่เหมาะกับผิว/เป้าหมายของผู้ใช้`;
+      const out=await callGemini(prompt, imgs.S.length?['S']:[]);
       data=parseJSON(out);
       renderSingle(data);
       saveHistory({ kind:'single', title:`${data.brand?data.brand+' ':''}${data.name||'สินค้า'}`, thumb:imgs.S[0]||'', data });
@@ -1853,24 +1897,51 @@ function verdictIcon(v){ v=(v||'').toLowerCase(); return v==='good'?'✅':v==='b
 
 function renderSingle(d){
   const bl=(d.blacklist_hits||[]).filter(Boolean);
-  const ing=(d.ingredients||[]).map(x=>
-    `<div class="ing"><span class="k">${esc(x.name||'-')}</span><span>${esc(x.benefit||'')}</span></div>`).join('');
-  const m=d.match||{};
+  const ing=(d.ingredients||[]).map(x=>{
+    const irr=(x.irritation||'').toLowerCase();
+    const irrTag=(irr==='high'||irr==='medium')?`<span class="irr ${irr}">${irr==='high'?'ระคายสูง':'ระคายกลาง'}</span>`:'';
+    return `<div class="ing"><span class="k">${esc(x.name||'-')}</span><span>${esc(x.benefit||'')}${irrTag}</span></div>`;
+  }).join('');
+  const acts=(d.key_actives||[]).filter(a=>a&&a.name).map(a=>`<span class="ing-target" title="${esc(a.benefit||'')}">${esc(a.name)}${a.percent&&a.percent!=='-'?' '+esc(a.percent):''}</span>`).join('');
+  const best=(d.best_for||[]).filter(Boolean).map(x=>`<span class="ing-target">${esc(x)}</span>`).join('');
+  const pros=(d.pros||[]).filter(Boolean), cons=(d.cons||[]).filter(Boolean);
+  const m=d.routine_fit||d.match||{};   // back-compat with old saved scans (match)
+  const how=d.how_to_use||{};
+  const alts=(d.alternatives||[]).filter(a=>a&&(a.name||a.why));
   const productLabel=esc((d.brand?d.brand+' ':'')+( d.name||'สินค้า'));
   let html=`
     <h2 style="margin-bottom:6px;"><span class="ic">🧴</span> ${esc(d.name||'สินค้า')}</h2>
-    <p class="sub">${esc(d.brand||'')}${d.price?' · <span class="price">'+esc(d.price)+'</span>':''}</p>
-    ${d.skin_fit?`<div class="meta" style="font-size:13px;margin-bottom:12px;">💧 <b>เหมาะกับผิว:</b> ${esc(d.skin_fit)}</div>`:''}
+    <p class="sub">${esc(d.brand||'')}${d.price?' · <span class="price">'+esc(d.price)+'</span>':''}${d.texture?' · '+esc(d.texture):''}</p>
+    ${d.summary_benefit?`<div class="ing-summary">💡 ${esc(d.summary_benefit)}</div>`:''}
+    ${best?`<div class="ing-meta-row" style="margin-bottom:8px;"><b style="font-size:11.5px;color:var(--ink-dim);align-self:center;">เหมาะกับ:</b> ${best}</div>`:''}
+    ${d.skin_fit?`<div class="meta" style="font-size:13px;margin-bottom:10px;">💧 <b>เหมาะกับผิว:</b> ${esc(d.skin_fit)}</div>`:''}
+    ${acts?`<div class="ing-meta-row" style="margin-bottom:8px;"><b style="font-size:11.5px;color:var(--ink-dim);align-self:center;">Active หลัก:</b> ${acts}</div>`:''}
     ${ing?`<div style="margin-bottom:12px;"><div class="meta" style="font-weight:700;margin-bottom:4px;">🧪 ส่วนผสมสำคัญ</div>${ing}</div>`:''}
   `;
-  if(bl.length) html+=`<div class="verdict bad"><div class="vh">🚫 พบส่วนผสมใน Blacklist ของคุณ</div>${esc(bl.join(', '))}</div>`;
+  if(pros.length||cons.length){
+    html+=`<div class="sc-cols">
+      ${pros.length?`<div class="sc-box sc-pros"><h4>👍 ข้อดี</h4><ul>${pros.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:''}
+      ${cons.length?`<div class="sc-box sc-cons"><h4>👎 ข้อควรระวัง</h4><ul>${cons.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:''}
+    </div>`;
+  }
+  if(how.when||how.frequency||how.order){
+    html+=`<div class="sc-howto">🕐 ${how.when?whenBadge(how.when):''}${how.frequency?` <span><b>ความถี่:</b> ${esc(how.frequency)}</span>`:''}${how.order?` <span>· <b>ลำดับ:</b> ${esc(how.order)}</span>`:''}</div>`;
+  }
+  if(bl.length) html+=`<div class="verdict bad" style="margin-top:10px;"><div class="vh">🚫 พบส่วนผสมใน Blacklist ของคุณ</div>${esc(bl.join(', '))}</div>`;
   html+=`
-    <div class="verdict ${verdictClass(m.verdict)}">
-      <div class="vh">${verdictIcon(m.verdict)} ${esc(m.headline||'ผลการแมตช์')}</div>
+    <div class="verdict ${verdictClass(m.verdict)}" style="margin-top:10px;">
+      <div class="vh">${verdictIcon(m.verdict)} ${esc(m.headline||'ผลการแมตช์กับรูทีน')}</div>
+      ${m.overlap?`<div style="margin:3px 0;">🔀 <b>ทับซ้อน:</b> ${esc(m.overlap)}</div>`:''}
+      ${m.conflict?`<div style="margin:3px 0;">⚠️ <b>Conflict:</b> ${esc(m.conflict)}</div>`:''}
       ${m.add?`<div style="margin:3px 0;">➕ <b>เพิ่มเข้ารูทีน:</b> ${esc(m.add)}</div>`:''}
       ${m.replace?`<div style="margin:3px 0;">🔄 <b>แทนที่:</b> ${esc(m.replace)}</div>`:''}
-      ${m.conflict?`<div style="margin:3px 0;">⚠️ <b>Conflict:</b> ${esc(m.conflict)}</div>`:''}
-    </div>
+    </div>`;
+  if(alts.length){
+    html+=`<div style="margin-top:12px;"><div class="meta" style="font-weight:700;margin-bottom:6px;">🔁 ทางเลือกอื่นที่น่าสนใจ</div>
+      ${alts.map(a=>`<div class="sc-alt"><div class="an">${esc(a.name||'')}${a.brand?` <span style="color:var(--ink-faint);font-weight:400;font-size:11.5px;">${esc(a.brand)}</span>`:''}</div>${a.why?`<div class="aw">${esc(a.why)}</div>`:''}</div>`).join('')}
+    </div>`;
+  }
+  html+=`
     <div class="add-routine-bar" id="addRoutineBar">
       <button class="btn sage" onclick="addToRoutine()">➕ เพิ่ม ${productLabel} เข้า My Routine</button>
       <button class="btn sm" onclick="addScanToProducts()">🧴 เก็บเข้า My Products</button>
@@ -1886,31 +1957,37 @@ function addScanToProducts(){
   else toast('มีสินค้านี้ใน My Products อยู่แล้ว');
 }
 
+// safe add-to-routine button: pass values via data-* (esc makes them attribute-safe; dataset decodes back)
+function cmpAddBtn(label, name, brand){
+  return `<button class="btn sage sm" data-n="${esc(name)}" data-b="${esc(brand||'')}" onclick="addToRoutineProduct(this.dataset.n,this.dataset.b)">${label}</button>`;
+}
+function cmpSide(side, p, accent){
+  const ki=(p.key_ingredients||[]).filter(Boolean).map(x=>`<span class="ing-target">${esc(x)}</span>`).join('');
+  const pros=(p.pros||[]).filter(Boolean), cons=(p.cons||[]).filter(Boolean);
+  return `<div class="step">
+    <div class="head"><span class="num"${accent?` style="background:linear-gradient(135deg,var(--sage-deep),var(--sage));color:#10231a;"`:''}>${side}</span><span class="nm">${esc(p.name||('สินค้า '+side))}</span></div>
+    <div class="meta">${esc(p.brand||'')}</div>
+    ${p.summary?`<div class="meta">${esc(p.summary)}</div>`:''}
+    ${ki?`<div class="ing-meta-row" style="margin-top:6px;">${ki}</div>`:''}
+    ${pros.length?`<div class="meta" style="margin-top:5px;color:var(--ok);">👍 ${pros.map(esc).join(', ')}</div>`:''}
+    ${cons.length?`<div class="meta" style="color:var(--warn);">👎 ${cons.map(esc).join(', ')}</div>`:''}
+  </div>`;
+}
 function renderCompare(d){
   const a=d.a||{}, b=d.b||{};
   const bl=(d.blacklist_hits||[]).filter(Boolean);
   const winner=(d.winner||'').trim();
-  const winnerIsA = winner==='A';
-  const winnerIsB = winner==='B';
 
   let addBtns='';
-  if(winnerIsA){
-    addBtns=`<button class="btn sage" onclick="addToRoutineProduct(${JSON.stringify(esc(a.name||'สินค้า A'))},${JSON.stringify(esc(a.brand||''))})">➕ เพิ่ม ${esc(a.name||'สินค้า A')} เข้า Routine</button>`;
-  } else if(winnerIsB){
-    addBtns=`<button class="btn sage" onclick="addToRoutineProduct(${JSON.stringify(esc(b.name||'สินค้า B'))},${JSON.stringify(esc(b.brand||''))})">➕ เพิ่ม ${esc(b.name||'สินค้า B')} เข้า Routine</button>`;
-  } else {
-    addBtns=`
-      <button class="btn sage sm" onclick="addToRoutineProduct(${JSON.stringify(esc(a.name||'สินค้า A'))},${JSON.stringify(esc(a.brand||''))})">➕ เพิ่ม A</button>
-      <button class="btn sage sm" onclick="addToRoutineProduct(${JSON.stringify(esc(b.name||'สินค้า B'))},${JSON.stringify(esc(b.brand||''))})">➕ เพิ่ม B</button>`;
-  }
+  if(winner==='A') addBtns=cmpAddBtn(`➕ เพิ่ม ${esc(a.name||'สินค้า A')} เข้า Routine`, a.name||'สินค้า A', a.brand);
+  else if(winner==='B') addBtns=cmpAddBtn(`➕ เพิ่ม ${esc(b.name||'สินค้า B')} เข้า Routine`, b.name||'สินค้า B', b.brand);
+  else addBtns=cmpAddBtn('➕ เพิ่ม A', a.name||'สินค้า A', a.brand)+cmpAddBtn('➕ เพิ่ม B', b.name||'สินค้า B', b.brand);
 
   $('scanOutput').innerHTML=`
     <h2 style="margin-bottom:10px;"><span class="ic">⚖️</span> เปรียบเทียบสินค้า</h2>
     <div class="grid2">
-      <div class="step"><div class="head"><span class="num">A</span><span class="nm">${esc(a.name||'สินค้า A')}</span></div>
-        <div class="meta">${esc(a.brand||'')}</div><div class="meta">${esc(a.summary||'')}</div></div>
-      <div class="step"><div class="head"><span class="num" style="background:linear-gradient(135deg,var(--sage-deep),var(--sage));color:#10231a;">B</span><span class="nm">${esc(b.name||'สินค้า B')}</span></div>
-        <div class="meta">${esc(b.brand||'')}</div><div class="meta">${esc(b.summary||'')}</div></div>
+      ${cmpSide('A', a, false)}
+      ${cmpSide('B', b, true)}
     </div>
     ${bl.length?`<div class="verdict bad"><div class="vh">🚫 พบส่วนผสมใน Blacklist</div>${esc(bl.join(', '))}</div>`:''}
     <div class="verdict good"><div class="vh">🏆 แนะนำ: ${esc(winner||'-')}</div>${esc(d.reason||'')}</div>
