@@ -788,7 +788,7 @@
 
     <div class="card">
       <h2><span class="ic">💾</span> Backup & Restore</h2>
-      <p class="sub">สำรองข้อมูลทั้งหมด (รูทีน, สินค้า, โปรไฟล์ผิว, blacklist, ส่วนผสมที่ดึงไว้, ประวัติ ฯลฯ) เป็นไฟล์ไว้กันหาย หรือย้ายเครื่อง</p>
+      <p class="sub">สำรองข้อมูล My Profile (รูทีน, สินค้า, โปรไฟล์ผิว, เป้าหมาย, blacklist) เป็นไฟล์ไว้กันหาย หรือย้ายเครื่อง — ส่วนข้อมูลส่วนผสม/แชต/ประวัติ กด refresh ดึงใหม่ทีหลังได้</p>
       <div class="row">
         <button class="btn primary sm" onclick="backupProfile()">⬇️ Backup (ดาวน์โหลดไฟล์)</button>
         <button class="btn sage sm" onclick="document.getElementById('restoreFile').click()">⬆️ Restore (เลือกไฟล์)</button>
@@ -2683,10 +2683,14 @@ async function sendSugChat(){
 }
 
 /* ── Tab 5: Export ── */
-/* ── Backup & Restore (all app data in localStorage) ── */
+/* ── Backup & Restore (My Profile data only) ──
+   Backs up the core profile: routine, products, skin, goals, blacklist.
+   Other data (cached ingredients, conflict results, chats, scan history)
+   is re-fetchable, so it's intentionally left out. */
+const PROFILE_KEYS=[LS.routineAM, LS.routinePM, LS.products, LS.skin, LS.goals, LS.blacklist];
 function backupProfile(){
   const data={};
-  Object.values(LS).forEach(k=>{ const v=get(k,null); if(v!==null) data[k]=v; });
+  PROFILE_KEYS.forEach(k=>{ const v=get(k,null); if(v!==null) data[k]=v; });
   const payload={ app:'skincare-ai', version:1, exportedAt:new Date().toISOString(), data };
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);
