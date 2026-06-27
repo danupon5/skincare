@@ -485,19 +485,24 @@
   <section class="view" id="view-builder">
     <div class="card">
       <h2><span class="ic">🧪</span> Routine Builder</h2>
-      <p class="sub">อัปโหลดรูปครีมที่คุณมี (รูปเดียวหลายขวดก็ได้) แล้ว AI จะจัดลำดับการทาให้</p>
+      <p class="sub">ใส่รูปครีม และ/หรือ พิมพ์รายการครีมเยอะ ๆ ก็ได้ — AI จะอ่านเองว่ามีโปรดักต์อะไรบ้าง แล้วจัดลำดับการทาให้</p>
 
+      <label class="fld">📸 รูปครีม (ใส่หรือไม่ใส่ก็ได้)</label>
       <div class="drop" id="dropB">
         <div class="big">📸</div>
         <div class="t">แตะเพื่อเลือกรูปจาก Gallery</div>
-        <div class="s">รองรับหลายรูป · JPG / PNG / WEBP</div>
+        <div class="s">รูปเดียวหลายขวดก็ได้ · รองรับหลายรูป · JPG / PNG / WEBP</div>
         <input type="file" id="fileB" accept="image/*" multiple hidden />
       </div>
       <div class="thumbs" id="thumbsB"></div>
 
+      <label class="fld" style="margin-top:14px;">📝 รายการครีม (พิมพ์ชื่อมาเยอะ ๆ ได้เลย)</label>
+      <textarea id="listB" placeholder="พิมพ์มาแบบไหนก็ได้ AI อ่านเอง เช่น&#10;CeraVe Foaming Cleanser&#10;The Ordinary Niacinamide 10%&#10;ครีมกันแดด Anessa&#10;Retinol 0.3, La Roche-Posay moisturizer ..."></textarea>
+      <div class="hint">ใส่ได้ทั้งบรรทัดละชื่อ หรือคั่นด้วยจุลภาค — ไม่ต้องเป๊ะ AI จะระบุให้</div>
+
       <div class="row" style="margin-top:14px;">
         <button class="btn primary" id="runB" onclick="buildRoutine()">✨ สร้างรูทีนให้ฉัน</button>
-        <button class="btn ghost sm" onclick="clearImgs('B')">ล้างรูป</button>
+        <button class="btn ghost sm" onclick="clearBuilderInputs()">ล้างทั้งหมด</button>
       </div>
       <div id="statusB"></div>
     </div>
@@ -1327,6 +1332,7 @@ function renderThumbs(bufKey){
 }
 function removeImg(bufKey,i){ imgs[bufKey].splice(i,1); renderThumbs(bufKey); }
 function clearImgs(bufKey){ imgs[bufKey]=[]; renderThumbs(bufKey); }
+function clearBuilderInputs(){ imgs.B=[]; renderThumbs('B'); $('listB').value=''; }
 function clearScanImgs(){ imgs.S=[];imgs.C1=[];imgs.C2=[]; renderThumbs('S');renderThumbs('C1');renderThumbs('C2'); }
 
 function setScanMode(m){
@@ -1418,18 +1424,31 @@ function parseJSON(text){
 
 /* ── Tab 2: Builder ── */
 async function buildRoutine(){
-  if(!imgs.B.length){ toast('กรุณาอัปโหลดรูปครีมก่อน','bad'); return; }
+  const listText=$('listB').value.trim();
+  const hasImgs=imgs.B.length>0, hasList=listText.length>0;
+  if(!hasImgs && !hasList){ toast('อัปโหลดรูป หรือพิมพ์รายการครีมก่อน','bad'); return; }
   const btn=$('runB'); btn.disabled=true;
-  $('statusB').innerHTML='<div class="loading"><div class="spin"></div> กำลังวิเคราะห์รูปและจัดลำดับรูทีน…</div>';
+  const loadMsg = hasImgs&&hasList ? 'กำลังอ่านรูป + รายการครีม และจัดลำดับรูทีน…'
+    : hasImgs ? 'กำลังวิเคราะห์รูปและจัดลำดับรูทีน…'
+    : 'กำลังอ่านรายการครีมและจัดลำดับรูทีน…';
+  $('statusB').innerHTML=`<div class="loading"><div class="spin"></div> ${loadMsg}</div>`;
   $('resultB').style.display='none';
 
   const skin=get(LS.skin), goals=get(LS.goals);
+  const sources=[
+    hasImgs?'- รูปผลิตภัณฑ์ที่แนบมา (อาจมีหลายชิ้นในรูปเดียวหรือหลายรูป)':'',
+    hasList?`- รายการครีมที่ผู้ใช้พิมพ์มา (รูปแบบอิสระ คั่นด้วยบรรทัดหรือจุลภาค):\n${listText}`:''
+  ].filter(Boolean).join('\n');
   const prompt=
 `${EXPERT_PERSONA}
 
-งาน: ดูรูปผลิตภัณฑ์ที่แนบมาทั้งหมด (อาจมีหลายชิ้นในรูปเดียวหรือหลายรูป)
-ระบุผลิตภัณฑ์แต่ละชิ้น ถ้าไม่แน่ใจชื่อให้ใช้ web search ช่วย แล้วจัดลำดับการทาที่ถูกต้อง
-(หลักการ: ทำความสะอาด → toner/essence → serum → eye cream → moisturizer → sunscreen เฉพาะเช้า; เนื้อบางไปเนื้อหนัก)
+งาน: รวบรวมผลิตภัณฑ์จากแหล่งข้อมูลต่อไปนี้ทั้งหมด:
+${sources}
+
+ขั้นตอน:
+1) ระบุผลิตภัณฑ์ทุกชิ้นจากทั้งรูปและรายการข้อความ ถ้าไม่แน่ใจชื่อให้ใช้ web search ช่วย
+2) ถ้าผลิตภัณฑ์เดียวกันปรากฏซ้ำ (ทั้งในรูปและในรายการ) ให้รวมเป็นชิ้นเดียว ไม่นับซ้ำ
+3) จัดลำดับการทาที่ถูกต้อง (หลักการ: ทำความสะอาด → toner/essence → serum → eye cream → moisturizer → sunscreen เฉพาะเช้า; เนื้อบางไปเนื้อหนัก)
 
 สภาพผิวผู้ใช้: ${skin||'(ไม่ได้ระบุ)'}
 เป้าหมายผิว: ${goals||'(ไม่ได้ระบุ)'}
@@ -1443,7 +1462,7 @@ async function buildRoutine(){
 }`;
 
   try{
-    const out=await callGemini(prompt,['B']);
+    const out=await callGemini(prompt, hasImgs?['B']:[]);
     const data=parseJSON(out);
     if(!data.steps||!Array.isArray(data.steps)||!data.steps.length) throw new Error('ไม่พบขั้นตอนในผลลัพธ์');
     lastBuilderSteps=data.steps;
