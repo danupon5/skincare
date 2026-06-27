@@ -787,6 +787,17 @@
     </div>
 
     <div class="card">
+      <h2><span class="ic">💾</span> Backup & Restore</h2>
+      <p class="sub">สำรองข้อมูลทั้งหมด (รูทีน, สินค้า, โปรไฟล์ผิว, blacklist, ส่วนผสมที่ดึงไว้, ประวัติ ฯลฯ) เป็นไฟล์ไว้กันหาย หรือย้ายเครื่อง</p>
+      <div class="row">
+        <button class="btn primary sm" onclick="backupProfile()">⬇️ Backup (ดาวน์โหลดไฟล์)</button>
+        <button class="btn sage sm" onclick="document.getElementById('restoreFile').click()">⬆️ Restore (เลือกไฟล์)</button>
+        <input type="file" id="restoreFile" accept="application/json,.json" hidden onchange="restoreProfile(this)" />
+      </div>
+      <div class="hint">ไฟล์เป็น .json — Restore จะเขียนทับข้อมูลเดิมในเครื่องนี้ แล้วโหลดหน้าใหม่</div>
+    </div>
+
+    <div class="card">
       <h2><span class="ic">⏰</span> Routine Reminder</h2>
       <p class="sub">เตือนเช้า/เย็นขณะเปิดแท็บนี้ค้างไว้ (ใช้ Notification ของเบราว์เซอร์)</p>
       <div class="grid2">
@@ -915,7 +926,12 @@ function setupTabs(){
 
 function flash(id){ const f=$('flash-'+id); if(!f)return; f.classList.add('show'); setTimeout(()=>f.classList.remove('show'),1600); }
 function saveProfile(which){
-  if(which==='routine'){ set(LS.routineAM,$('routineAM').value); set(LS.routinePM,$('routinePM').value); flash('routine'); }
+  if(which==='routine'){
+    set(LS.routineAM,$('routineAM').value); set(LS.routinePM,$('routinePM').value); flash('routine');
+    const { added }=syncRoutineToProducts();   // auto-add new routine items to My Products
+    toast(added?`บันทึก Routine + เพิ่ม ${added} สินค้าใหม่เข้าคลังอัตโนมัติ ✓`:'บันทึกแล้ว','ok');
+    return;
+  }
   if(which==='skin'){ set(LS.skin,$('skinProfile').value); flash('skin'); }
   if(which==='goals'){ set(LS.goals,$('skinGoals').value); flash('goals'); }
   toast('บันทึกแล้ว','ok');
@@ -958,12 +974,12 @@ function addProductManual(){
   else { inp.value=''; toast('มีสินค้านี้อยู่แล้ว'); }
 }
 // pull current AM/PM routine lines into My Products (dedup, set when AM/PM/Both)
-function importProductsFromRoutine(){
+// Core: add any routine line (from the AM/PM textareas) that isn't already in My Products.
+// Returns { added, dup }. Existing products' when is left untouched.
+function syncRoutineToProducts(){
   const amLines=parseRoutineLines($('routineAM').value);
   const pmLines=parseRoutineLines($('routinePM').value);
-  if(!amLines.length && !pmLines.length){ toast('ยังไม่มีรูทีนให้ดึง','bad'); return; }
-
-  // determine when for each unique name
+  if(!amLines.length && !pmLines.length) return { added:0, dup:0 };
   const lower=s=>s.toLowerCase().trim();
   const amSet=new Set(amLines.map(lower)), pmSet=new Set(pmLines.map(lower));
   const seen=new Map(); // key -> {name, when}
@@ -973,9 +989,15 @@ function importProductsFromRoutine(){
     const when = amSet.has(k)&&pmSet.has(k) ? 'Both' : amSet.has(k) ? 'AM' : 'PM';
     seen.set(k,{ name, when });
   });
-
   let added=0, dup=0;
   seen.forEach(v=>{ if(addProduct(v.name,'',v.when)) added++; else dup++; });
+  return { added, dup };
+}
+function importProductsFromRoutine(){
+  if(!parseRoutineLines($('routineAM').value).length && !parseRoutineLines($('routinePM').value).length){
+    toast('ยังไม่มีรูทีนให้ดึง','bad'); return;
+  }
+  const { added, dup }=syncRoutineToProducts();
   if(added) toast(`เพิ่ม ${added} สินค้าเข้าคลัง${dup?` (ข้ามซ้ำ ${dup})`:''} ✓`,'ok');
   else toast('สินค้าทั้งหมดมีในคลังอยู่แล้ว');
 }
@@ -1776,7 +1798,8 @@ function saveBuilderToRoutine(){
   $('routinePM').value=fmt(pm);
   set(LS.routineAM,$('routineAM').value);
   set(LS.routinePM,$('routinePM').value);
-  toast('บันทึกเข้า My Routine แล้ว ✓','ok');
+  const { added }=syncRoutineToProducts();
+  toast(added?`บันทึกเข้า My Routine + เพิ่ม ${added} สินค้าเข้าคลัง ✓`:'บันทึกเข้า My Routine แล้ว ✓','ok');
   document.querySelector('.tab[data-tab="profile"]').click();
 }
 
@@ -2216,6 +2239,7 @@ function confirmAddRoutine(){
   $('routinePM').value = fmt(pmArr);
   set(LS.routineAM, $('routineAM').value);
   set(LS.routinePM, $('routinePM').value);
+  const { added }=syncRoutineToProducts();
 
   const statusEl=$('addRoutineStatus');
   const bar=$('addRoutineBar');
@@ -2224,7 +2248,7 @@ function confirmAddRoutine(){
     bar.innerHTML=`<span style="color:var(--ok);font-weight:600;">✓ บันทึกเข้า My Routine แล้ว</span>
       <button class="btn ghost sm" onclick="document.querySelector('.tab[data-tab=profile]').click()">ไปดู Routine →</button>`;
   }
-  toast('อัปเดต Routine แล้ว ✓','ok');
+  toast(added?`อัปเดต Routine + เพิ่ม ${added} สินค้าเข้าคลัง ✓`:'อัปเดต Routine แล้ว ✓','ok');
 }
 
 function cancelAddRoutine(){
@@ -2448,7 +2472,8 @@ function confirmSugRoutine(){
   set(LS.routinePM,$('routinePM').value);
   pendingSugRoutine=null;
   flash('sug-routine');
-  toast('บันทึก Optimized Routine แล้ว ✓','ok');
+  const { added }=syncRoutineToProducts();
+  toast(added?`บันทึก Optimized Routine + เพิ่ม ${added} สินค้าเข้าคลัง ✓`:'บันทึก Optimized Routine แล้ว ✓','ok');
   $('optRoutineActions').innerHTML=`
     <span style="color:var(--ok);font-weight:600;">✓ บันทึกแล้ว</span>
     <button class="btn ghost sm" onclick="document.querySelector('.tab[data-tab=profile]').click()">ไปดู My Routine →</button>`;
@@ -2658,6 +2683,41 @@ async function sendSugChat(){
 }
 
 /* ── Tab 5: Export ── */
+/* ── Backup & Restore (all app data in localStorage) ── */
+function backupProfile(){
+  const data={};
+  Object.values(LS).forEach(k=>{ const v=get(k,null); if(v!==null) data[k]=v; });
+  const payload={ app:'skincare-ai', version:1, exportedAt:new Date().toISOString(), data };
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const stamp=new Date().toISOString().slice(0,16).replace(/[:T]/g,'-');
+  a.href=url; a.download=`skincare-backup-${stamp}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  toast('ดาวน์โหลดไฟล์ backup แล้ว ✓','ok');
+}
+function restoreProfile(input){
+  const file=input.files&&input.files[0];
+  input.value='';   // allow re-selecting same file later
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    let payload;
+    try{ payload=JSON.parse(reader.result); }catch(e){ toast('ไฟล์ไม่ถูกต้อง (อ่าน JSON ไม่ได้)','bad'); return; }
+    const data=payload&&payload.data ? payload.data : payload;   // accept raw map too
+    const known=new Set(Object.values(LS));
+    const keys=Object.keys(data||{}).filter(k=>known.has(k));
+    if(!keys.length){ toast('ไม่พบข้อมูลที่กู้คืนได้ในไฟล์นี้','bad'); return; }
+    if(!confirm(`กู้คืนข้อมูล ${keys.length} รายการ จะเขียนทับข้อมูลในเครื่องนี้และโหลดหน้าใหม่ ดำเนินการต่อไหม?`)) return;
+    keys.forEach(k=>{ try{ set(k, String(data[k])); }catch(e){} });
+    toast('กู้คืนข้อมูลแล้ว กำลังโหลดใหม่…','ok');
+    setTimeout(()=>location.reload(),700);
+  };
+  reader.onerror=()=>toast('อ่านไฟล์ไม่สำเร็จ','bad');
+  reader.readAsText(file);
+}
+
 function exportPDF(){
   const am=get(LS.routineAM)||'(ยังไม่ได้บันทึกรูทีนเช้า)';
   const pm=get(LS.routinePM)||'(ยังไม่ได้บันทึกรูทีนเย็น)';
