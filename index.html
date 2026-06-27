@@ -179,6 +179,11 @@
   .cf-cache.no{background:rgba(230,184,106,.16);color:var(--warn);}
   .cf-refresh{border:1px solid var(--line);background:transparent;color:var(--ink-dim);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:14px;flex:none;}
   .cf-refresh:hover{border-color:var(--ink-faint);color:var(--ink);}
+  .cf-pick{display:flex;align-items:center;gap:9px;padding:8px 11px;border:1px solid var(--line);border-radius:10px;margin-bottom:7px;background:var(--panel-2);cursor:pointer;}
+  .cf-pick input{width:17px;height:17px;accent-color:var(--rose);flex:none;cursor:pointer;}
+  .cf-pick .pn{font-size:13px;font-weight:600;flex:1;}
+  .cf-pick .pb{color:var(--ink-faint);font-weight:400;font-size:11.5px;}
+  .cf-pick .cf-cache{font-size:10px;}
 
   .sev{font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:999px;letter-spacing:.3px;text-transform:uppercase;}
   .sev.high{background:rgba(224,138,130,.2);color:var(--danger);}
@@ -548,6 +553,24 @@
       <div id="safePairs"></div>
     </div>
 
+    <!-- Card D: discuss with AI -->
+    <div class="card" id="conflictChatCard">
+      <h2><span class="ic">💬</span> คุยกับ AI เรื่องส่วนผสม</h2>
+      <p class="sub">เลือกสินค้าที่อยากให้เอา <b>ส่วนผสมจริง</b> มาเช็ค/ถกกัน แล้วกดเริ่มแชต — หรือกด "ตรวจ Conflict แบบละเอียด" ด้านบนก่อน แล้ว AI จะพร้อมคุยต่อจากผลนั้นได้ทันที</p>
+      <div id="cfChatPick"></div>
+      <div class="row" style="margin-top:10px;">
+        <button class="btn primary sm" id="cfChatStart" onclick="startConflictChat()">💬 เอาส่วนผสมที่เลือกมาคุย</button>
+        <button class="btn ghost sm" onclick="cfChatSelectAll(true)">เลือกทั้งหมด</button>
+        <button class="btn ghost sm" onclick="cfChatSelectAll(false)">ไม่เลือกเลย</button>
+      </div>
+      <div class="chat-suggestions" id="cfChatSugs"></div>
+      <div class="chat-msgs" id="cfChatMsgs"></div>
+      <div class="chat-input-row">
+        <input type="text" id="cfChatInput" placeholder="พิมพ์คำถาม เช่น สองตัวนี้ใช้พร้อมกันตอนเช้าได้ไหม?" />
+        <button class="btn primary sm" id="cfChatSendBtn" onclick="sendConflictChat()">ส่ง</button>
+      </div>
+    </div>
+
   </section>
 
   <!-- ============ TAB 3: SCANNER ============ -->
@@ -777,6 +800,8 @@ let pendingSugRoutine = null;   // { am:[], pm:[] } from AI Suggestions
 let sugChatHistory = [];        // AI Suggestions chat, session-only
 let lastRecItems = [];          // flat list of current recommendations (for wishlist)
 let pendingProdRoutine = null;  // { am:[], pm:[] } from My Products → routine
+let cfChatHistory = [];         // Conflict Check chat, session-only
+let cfChatPicked = null;        // Set<prodKey> chosen for chat; null = default all in-use
 
 /* Shared expert persona — prepended to every prompt for consistent, high-level output */
 const EXPERT_PERSONA =
@@ -820,6 +845,7 @@ function init(){
   $('productInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addProductManual(); }});
   $('chatInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendChat(); }});
   $('sugChatInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendSugChat(); }});
+  $('cfChatInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendConflictChat(); }});
 
   setupTabs();
   setupDrop('dropB','fileB','B');
@@ -1042,6 +1068,7 @@ function renderConflictPanel(){
       <button class="cf-refresh" title="ดึงข้อมูลส่วนผสมใหม่" onclick="refreshOneIngredient('${encodeURIComponent(prodKey(p.name,p.brand))}')">↻</button>
     </div>`;
   }).join('');
+  renderCfChatPick();
 }
 
 async function refreshOneIngredient(encKey){
@@ -1191,6 +1218,9 @@ ${payload}
     const data=parseJSON(out);
     renderConflicts(data);
     set(LS.conflictResult, JSON.stringify({ at:new Date().toISOString(), data }));
+    cfChatPicked=null;   // auto check covers all in-use → select all in chat
+    renderCfChatPick();
+    buildCfChat(list, data);   // prime chat with full ingredient detail + conflict result
     $('statusConflict').innerHTML='';
     toast('ตรวจ Conflict เสร็จแล้ว ✓','ok');
   }catch(err){
@@ -1286,6 +1316,110 @@ function renderConflicts(data){
     ? `<h3 style="font-size:13.5px;margin:18px 0 9px;color:var(--ink-dim);">✅ คู่ที่ใช้ด้วยกันได้ดี</h3>`+
       safe.map(s=>`<div class="verdict good" style="margin-top:8px;"><div class="vh">${esc(s.pair)}</div>${esc(s.why||'')}</div>`).join('')
     : '';
+}
+
+/* ── Conflict Check: discuss with AI ── */
+// cfChatPicked === null  ⇒ "select all in-use" (default). A Set ⇒ explicit user selection.
+function inUseKeys(){ return cfProducts().map(p=>prodKey(p.name,p.brand)); }
+function cfIsPicked(k){ return cfChatPicked===null ? true : cfChatPicked.has(k); }
+function cfPickedKeys(){ return cfChatPicked===null ? inUseKeys() : inUseKeys().filter(k=>cfChatPicked.has(k)); }
+function cfChatToggle(enc,on){
+  const k=decodeURIComponent(enc);
+  if(cfChatPicked===null) cfChatPicked=new Set(inUseKeys());  // materialize from current "all"
+  if(on) cfChatPicked.add(k); else cfChatPicked.delete(k);
+}
+function cfChatSelectAll(on){ cfChatPicked = on ? null : new Set(); renderCfChatPick(); }
+
+function renderCfChatPick(){
+  const c=$('cfChatPick'); if(!c) return;
+  const list=cfProducts();
+  if(!list.length){ c.innerHTML='<div class="empty">ยังไม่มีสินค้าที่ติ๊กว่าใช้อยู่ — ไปติ๊ก ✓ ใน My Products ก่อน</div>'; $('cfChatStart').disabled=true; return; }
+  $('cfChatStart').disabled=false;
+  c.innerHTML=list.map(p=>{
+    const k=prodKey(p.name,p.brand), det=getIngredientFor(k);
+    return `<label class="cf-pick">
+      <input type="checkbox" ${cfIsPicked(k)?'checked':''} onchange="cfChatToggle('${encodeURIComponent(k)}',this.checked)">
+      <span class="badge ${whenClass(p.when)}">${whenLabel(p.when)}</span>
+      <span class="pn">${esc(p.name)}${p.brand?` <span class="pb">${esc(p.brand)}</span>`:''}</span>
+      ${det?'<span class="cf-cache ok">✓ มีข้อมูล</span>':'<span class="cf-cache no">⟳ ยังไม่มี</span>'}
+    </label>`;
+  }).join('');
+}
+
+function cfProductContext(p){
+  const d=getIngredientFor(prodKey(p.name,p.brand));
+  if(!d) return `- ${p.name}${p.brand?' ('+p.brand+')':''}: (ยังไม่มีข้อมูลส่วนผสม)`;
+  const pr=d.product||{};
+  const ings=(d.ingredients||[]).map(x=>`${x.name}${x.actives_tag?` <${x.actives_tag}>`:''}${x.irritation==='high'?' (ระคายสูง)':''}`).join(', ');
+  const acts=(pr.key_actives||[]).map(a=>`${a.name}(${a.type}${a.percent&&a.percent!=='-'?' '+a.percent:''})`).join(', ');
+  return `- ${p.name}${p.brand?' ('+p.brand+')':''} | ใช้ช่วง ${whenLabel(p.when)} | ประเภท ${pr.type||'-'} | pH ${pr.ph||'-'}\n  actives: ${acts||'-'}\n  ส่วนผสม: ${ings||'-'}`;
+}
+
+function buildCfChat(selected, conflictData){
+  const skin=get(LS.skin), blacklist=getBlacklist();
+  const ctx=`${EXPERT_PERSONA}
+
+ผู้ใช้ต้องการพูดคุย/ปรึกษาเรื่องความเข้ากันของส่วนผสมระหว่างผลิตภัณฑ์ที่เลือกด้านล่าง โดยอ้างอิง "ส่วนผสมจริง"
+ตอบเป็นภาษาไทย กระชับ เป็นกันเอง อ้างอิงส่วนผสม/ค่า pH/ช่วงเวลา (AM/PM) ที่ให้มา และเวลาแนะนำให้บอกเหตุผลสั้น ๆ
+ถ้าผู้ใช้ถามถึงคู่ใดให้เจาะจงว่าตัวไหนชนกับตัวไหน เพราะอะไร และควรจัดการอย่างไร (แยกเช้า/เย็น, สลับวัน, เว้นระยะ ฯลฯ)
+
+สภาพผิวผู้ใช้: ${skin||'(ไม่ระบุ)'}
+Blacklist: ${blacklist.length?blacklist.join(', '):'(ไม่มี)'}
+
+ผลิตภัณฑ์ที่นำมาคุย:
+${selected.map(cfProductContext).join('\n\n')}${conflictData?`\n\nผลตรวจ Conflict อัตโนมัติล่าสุด (อ้างอิงได้): ${JSON.stringify(conflictData)}`:''}`;
+
+  const greet = conflictData
+    ? `พร้อมคุยเรื่องส่วนผสมของ ${selected.length} ตัวที่เลือกแล้วค่ะ (มีผลตรวจ Conflict ล่าสุดประกอบด้วย) อยากเจาะลึกคู่ไหน หรือถามอะไรได้เลยค่ะ 😊`
+    : `ดึงส่วนผสมของ ${selected.length} ตัวที่เลือกมาแล้วค่ะ อยากให้เช็คคู่ไหนเป็นพิเศษ หรือถามเรื่องการใช้ร่วมกันได้เลยค่ะ 😊`;
+  cfChatHistory=[{ role:'user', text:ctx }, { role:'ai', text:greet }];
+  $('cfChatMsgs').innerHTML=''; appendCfBubble('ai', greet);
+  const sugs=['คู่ไหนห้ามใช้พร้อมกัน?','ช่วยจัดลำดับ AM/PM ให้หน่อย','ตัวไหนควรสลับวันใช้?','มีตัวไหนเสี่ยงระคายเคืองไหม?'];
+  $('cfChatSugs').innerHTML=sugs.map(s=>`<button class="chat-sug" onclick="quickCfChat('${esc(s)}')">${esc(s)}</button>`).join('');
+  $('cfChatInput').value='';
+}
+
+async function startConflictChat(){
+  const keys=cfPickedKeys();
+  const selected=cfProducts().filter(p=>keys.includes(prodKey(p.name,p.brand)));
+  if(!selected.length){ toast('เลือกสินค้าที่จะคุยอย่างน้อย 1 ตัว','bad'); return; }
+  const btn=$('cfChatStart'); btn.disabled=true;
+  $('cfChatSugs').innerHTML=''; $('cfChatMsgs').innerHTML='';
+  const loader=document.createElement('div'); loader.className='chat-bubble ai loading'; loader.innerHTML='<div class="spin"></div>';
+  $('cfChatMsgs').appendChild(loader);
+  try{
+    const missing=selected.filter(p=>!getIngredientFor(prodKey(p.name,p.brand)));
+    for(let i=0;i<missing.length;i++){
+      loader.innerHTML=`<div class="spin"></div> กำลังหาส่วนผสม ${i+1}/${missing.length}: ${esc(missing[i].name)}…`;
+      await fetchIngredientDetail(missing[i]);
+    }
+    renderConflictPanel(); renderIngredientProfiles(cfProducts());
+    let conflictData=null; try{ const lc=JSON.parse(get(LS.conflictResult,'null')); if(lc&&lc.data) conflictData=lc.data; }catch(e){}
+    buildCfChat(selected, conflictData);
+  }catch(err){
+    loader.remove(); appendCfBubble('ai','⚠️ '+err.message);
+  }finally{ btn.disabled=false; }
+}
+
+function appendCfBubble(role,text){
+  const div=document.createElement('div'); div.className='chat-bubble '+role; div.textContent=text;
+  $('cfChatMsgs').appendChild(div); $('cfChatMsgs').scrollTop=$('cfChatMsgs').scrollHeight;
+}
+function quickCfChat(text){ $('cfChatInput').value=text; sendConflictChat(); }
+async function sendConflictChat(){
+  const inp=$('cfChatInput'); const text=inp.value.trim();
+  if(!text) return;
+  if(!cfChatHistory.length){ toast('กด "เอาส่วนผสมที่เลือกมาคุย" ก่อนนะคะ','bad'); return; }
+  inp.value=''; $('cfChatSugs').innerHTML='';
+  appendCfBubble('user',text); cfChatHistory.push({ role:'user', text });
+  const btn=$('cfChatSendBtn'); btn.disabled=true;
+  const loader=document.createElement('div'); loader.className='chat-bubble ai loading'; loader.innerHTML='<div class="spin"></div>';
+  $('cfChatMsgs').appendChild(loader); $('cfChatMsgs').scrollTop=$('cfChatMsgs').scrollHeight;
+  try{
+    const reply=await callGeminiChat(cfChatHistory);
+    loader.remove(); cfChatHistory.push({ role:'ai', text:reply }); appendCfBubble('ai',reply);
+  }catch(err){ loader.remove(); appendCfBubble('ai','⚠️ '+err.message); }
+  finally{ btn.disabled=false; }
 }
 
 function setupDrop(dropId,inputId,bufKey){
