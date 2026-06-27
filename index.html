@@ -434,6 +434,14 @@
           <option value="gemini-2.5-flash">Gemini 2.5 Flash — fallback (ยังใช้ได้)</option>
         </select>
       </div>
+      <div style="margin-top:12px;">
+        <label class="fld">ภาษา Prompt (ทดลองเทียบผลลัพธ์)</label>
+        <select id="promptLang">
+          <option value="th">Prompt ไทย (เดิม) — โทนเป็นธรรมชาติ</option>
+          <option value="en">Prompt อังกฤษ → ผลไทย — แม่นเชิงเทคนิค/ถูก token</option>
+        </select>
+        <div class="hint">เปลี่ยนได้ทุกเมื่อ ระบบเก็บทั้งสองชุด prompt ไว้ สลับเพื่อเทียบผลลัพธ์ได้</div>
+      </div>
     </div>
   </details>
 
@@ -828,7 +836,7 @@
 "use strict";
 
 const LS = {
-  key:'sk_apikey', model:'sk_model',
+  key:'sk_apikey', model:'sk_model', promptLang:'sk_prompt_lang',
   routineAM:'sk_rAM', routinePM:'sk_rPM',
   skin:'sk_skin', goals:'sk_goals', blacklist:'sk_blacklist',
   history:'sk_history', remAM:'sk_remAM', remPM:'sk_remPM', remOn:'sk_remOn',
@@ -854,8 +862,13 @@ let pendingProdRoutine = null;  // { am:[], pm:[] } from My Products → routine
 let cfChatHistory = [];         // Conflict Check chat, session-only
 let cfChatPicked = null;        // Set<prodKey> chosen for chat; null = default all in-use
 
-/* Shared expert persona — prepended to every prompt for consistent, high-level output */
-const EXPERT_PERSONA =
+/* ── Prompt language mode (toggle in settings; Thai is the original, kept for rollback/compare) ── */
+function promptLang(){ return get(LS.promptLang,'th')==='en' ? 'en' : 'th'; }
+// pick Thai or English variant based on the saved setting
+function L(th, en){ return promptLang()==='en' ? en : th; }
+
+/* Shared expert persona — prepended to every prompt. Bilingual; EN variant pins Thai output + transliteration rules. */
+const EXPERT_PERSONA_TH =
 `บทบาท: คุณคือ "ดร.สกิน" ที่ปรึกษาสกินแคร์ระดับผู้เชี่ยวชาญ ผสานความรู้ของแพทย์ผิวหนัง (board-certified dermatologist) และนักเคมีเครื่องสำอาง (cosmetic chemist) ประสบการณ์คลินิกและตลาดสกินแคร์ไทยกว่า 15 ปี
 
 หลักการวิเคราะห์:
@@ -868,6 +881,24 @@ const EXPERT_PERSONA =
 
 มาตรฐานคำตอบ: ตรงประเด็น มีเหตุผลรองรับทุกคำแนะนำ ใช้ภาษาเข้าใจง่าย ไม่โอ้อวดเกินจริง และถ้าไม่มั่นใจชื่อสินค้า/ส่วนผสมให้ระบุชัดว่าเป็นการประมาณ`;
 
+const EXPERT_PERSONA_EN =
+`Role: You are "Dr. Skin", an expert-level skincare advisor combining the knowledge of a board-certified dermatologist and a cosmetic chemist, with 15+ years of clinical and Thai-market experience.
+
+Analysis principles:
+- Evidence-based; reference real efficacious concentrations (% active) and appropriate pH.
+- Deep INCI understanding: ingredient functions, compatibility, irritants (fragrance, essential oil, alcohol denat.).
+- Key interactions: Retinoid+AHA/BHA, Vitamin C+Niacinamide, Benzoyl Peroxide+Retinol, over-layering of actives.
+- Consider skin barrier, sensitive skin, purging vs breakout, introducing new actives one at a time.
+- Thai context: hot/humid climate, strong sun (emphasize SPF), brands/prices actually buyable here (Watsons, Eveandboy, Shopee, Lazada).
+- Advise seeing a doctor when needed (severe inflammatory acne, allergic rash, pregnancy with retinoids/certain acids).
+
+Answer standard: be on-point, justify every recommendation, use plain language, no overclaiming; if unsure about a product/ingredient, say it's an estimate.
+
+OUTPUT LANGUAGE RULE (important): Respond in natural, fluent Thai. Keep ingredient names, INCI names, active names and percentages in their original English/Latin form (do NOT transliterate those). Transliterate to Thai only for words Thais genuinely use in everyday speech. Any JSON keys/enum values defined in the task must stay exactly as specified.`;
+
+// PERSONA() resolves to the active language; used in every prompt as ${PERSONA()}
+function PERSONA(){ return L(EXPERT_PERSONA_TH, EXPERT_PERSONA_EN); }
+
 let toastT=null;
 function toast(msg,kind=''){
   const t=$('toast'); t.textContent=msg; t.className='toast show '+kind;
@@ -877,6 +908,7 @@ function toast(msg,kind=''){
 function init(){
   const m = get(LS.model,'gemini-3.1-flash-lite'); $('model').value = m;
   if(![...$('model').options].some(o=>o.value===m)) $('model').value='gemini-3.1-flash-lite';
+  $('promptLang').value = get(LS.promptLang,'th');
   $('routineAM').value = get(LS.routineAM);
   $('routinePM').value = get(LS.routinePM);
   $('skinProfile').value = get(LS.skin);
@@ -893,6 +925,7 @@ function init(){
   restoreChats();
 
   $('model').addEventListener('change', e=>set(LS.model,e.target.value));
+  $('promptLang').addEventListener('change', e=>{ set(LS.promptLang,e.target.value); toast(e.target.value==='en'?'สลับเป็น Prompt อังกฤษ → ผลไทย ✓':'สลับเป็น Prompt ไทย (เดิม) ✓','ok'); });
   $('blacklistInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addBlacklist(); }});
   $('productInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addProductManual(); }});
   $('chatInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendChat(); }});
@@ -1040,7 +1073,7 @@ async function buildRoutineFromProducts(){
   $('prodRoutinePreview').innerHTML='';
 
   const prompt=
-`${EXPERT_PERSONA}
+`${PERSONA()}
 
 งาน: จัดสินค้าต่อไปนี้ที่ผู้ใช้มีและเลือกใช้ ให้เป็นรูทีนเช้า/เย็นที่ถูกลำดับ
 หลักการ: ล้างหน้า → toner → essence → serum (บางไปหนัก) → eye cream → moisturizer → sunscreen (เช้าเท่านั้น) / oil หรือ sleeping mask (กลางคืน)
@@ -1154,9 +1187,9 @@ async function refreshOneIngredient(encKey){
 async function fetchIngredientDetail(product){
   const skin=get(LS.skin);
   const prompt=
-`${EXPERT_PERSONA}
+`${PERSONA()}
 
-งาน: ค้นหาและวิเคราะห์ "ส่วนผสมทั้งหมด (full INCI list)" ของผลิตภัณฑ์นี้ให้ละเอียดและครบถ้วนที่สุด
+${L(`งาน: ค้นหาและวิเคราะห์ "ส่วนผสมทั้งหมด (full INCI list)" ของผลิตภัณฑ์นี้ให้ละเอียดและครบถ้วนที่สุด
 ขั้นตอน:
 1) ระบุก่อนว่าผลิตภัณฑ์นี้ "ชูจุดขาย/สารเด่น (hero / signature)" อะไรที่แบรนด์โฆษณา เช่น โสมแดงเกาหลีของ Sulwhasoo, snail ของ COSRX, centella/cica, vitamin C, retinol ฯลฯ
 2) ใช้ web search หา INCI จริงจากเว็บทางการ/ฐานข้อมูล (INCIDecoder, แบรนด์, Watsons, Olive Young) แล้วลิสต์ "ครบทุกตัว" ตามจริง — ผลิตภัณฑ์ส่วนใหญ่มี 15-40 ส่วนผสม อย่าตัดเหลือแค่ไม่กี่ตัว
@@ -1210,7 +1243,62 @@ async function fetchIngredientDetail(product){
 - evidence: ระดับหลักฐานทางวิทยาศาสตร์ของประโยชน์ที่อ้าง (strong=มีงานวิจัยหนุนชัด, moderate=พอมี, limited=น้อย/เป็นทฤษฎี)
 - comedogenic: ใส่เป็นตัวเลข 0-5
 - actives_tag: ใส่ค่าเช่น "retinoid","aha","bha","vitc","niacinamide" เฉพาะตัวที่เป็น active สำคัญ ไม่งั้น null
-- เน้นความถูกต้องของส่วนผสมที่เป็น active และตัวที่ก่อระคายเคือง/แพ้บ่อย${skin?`\n- บริบทผิวผู้ใช้ (เพื่อ note): ${skin}`:''}`;
+- เน้นความถูกต้องของส่วนผสมที่เป็น active และตัวที่ก่อระคายเคือง/แพ้บ่อย${skin?`\n- บริบทผิวผู้ใช้ (เพื่อ note): ${skin}`:''}`,
+`Task: Research and analyze this product's COMPLETE full INCI list as thoroughly as possible.
+Steps:
+1) First identify the HERO / signature ingredient(s) the brand markets this product for, e.g. Korean red ginseng for Sulwhasoo, snail for COSRX, centella/cica, vitamin C, retinol, etc.
+2) Use web search to find the real INCI from official sources/databases (INCIDecoder, the brand, Watsons, Olive Young) and list EVERY ingredient as it really is — most products have 15-40 ingredients, do not trim to a few.
+3) Very important: the hero/signature ingredient(s) MUST appear in the ingredients list with the correct INCI name (e.g. Sulwhasoo must include ginseng, Panax Ginseng Root Extract) — never omit or overlook them.
+4) If you cannot find the complete real INCI, set inci_confidence = "estimated", but ALWAYS still include the brand's hero ingredients, and state in notes which parts are estimated.
+5) Self-check before answering: is every hero ingredient present in the ingredients list? If not, add it.
+
+Product: ${product.name}${product.brand?` (brand: ${product.brand})`:''}
+
+Reply with JSON ONLY, no other text:
+{
+  "product": {
+    "type": "product type, e.g. Vitamin C serum, BHA exfoliant, Retinol cream, Cleanser, Sunscreen",
+    "inci_confidence": "official" | "estimated",
+    "ph": "approximate pH e.g. 3.2-3.8, or '-' if not relevant",
+    "texture": "texture e.g. gel, cream, water, lotion, oil, or '-'",
+    "summary_benefit": "overall benefit in 1-2 sentences (what you get from using it)",
+    "hero": [ { "name": "hero/signature ingredient the brand markets, e.g. red ginseng extract", "inci": "INCI name e.g. Panax Ginseng Root Extract", "why": "why it's the selling point / what it does" } ],
+    "best_for": ["skin concerns/goals it suits, e.g. acne, dark spots, wrinkles, dry skin"],
+    "key_actives": [
+      { "name": "active name", "type": "retinoid|aha|bha|vitc|niacinamide|peptide|benzoyl_peroxide|azelaic|vitamin_a|other", "percent": "approx % e.g. 10% or '-'", "benefit": "main benefit of this active, brief" }
+    ],
+    "flags": { "photosensitizing": true|false, "fungal_acne_safe": true|false, "pregnancy_safe": true|false }
+  },
+  "ingredients": [
+    {
+      "name": "common/everyday name",
+      "inci": "official INCI name",
+      "function": "function e.g. humectant, emollient, active, surfactant, preservative, fragrance, solvent",
+      "category": "active" | "functional" | "other",
+      "percent": "approx % if estimable, else '-'",
+      "benefit": "this ingredient's benefit/effect on skin, concise (e.g. 'boosts hydration, locks in water', 'stimulates collagen, reduces wrinkles', 'exfoliates, clears clogged pores')",
+      "targets": ["concerns it helps, e.g. acne, dark spots, wrinkles, hydration, pores"],
+      "evidence": "strong" | "moderate" | "limited",
+      "comedogenic": 0,
+      "irritation": "low" | "medium" | "high",
+      "ph_sensitive": true|false,
+      "photosensitizing": true|false,
+      "pregnancy_caution": true|false,
+      "actives_tag": null,
+      "note": "brief per-ingredient note/caution if any"
+    }
+  ],
+  "notes": "brief summary of the formula / cautions for this product"
+}
+
+Requirements:
+- hero: list signature ingredients the brand markets for THIS specific product (if any); every hero item must also appear in ingredients
+- ingredients: list every ingredient as it really is (do not trim), ordered by concentration (high→low) if possible
+- benefit: fill in for every item, even functional ones (preservative/emulsifier) — this data is stored and reused during analysis
+- evidence: scientific evidence level of the claimed benefit (strong=well-supported, moderate=some, limited=little/theoretical)
+- comedogenic: a number 0-5
+- actives_tag: values like "retinoid","aha","bha","vitc","niacinamide" only for important actives, else null
+- prioritize accuracy of actives and common irritants/allergens${skin?`\n- user's skin context (for note): ${skin}`:''}`)}`;
 
   const out=await callGemini(prompt,[]);
   const data=parseJSON(out);
@@ -1257,9 +1345,9 @@ async function runConflictCheck(force=false){
     }).join('\n\n');
 
     const prompt=
-`${EXPERT_PERSONA}
+`${PERSONA()}
 
-งาน: ตรวจ "ความขัดแย้ง (conflict)" ระหว่างผลิตภัณฑ์ที่ผู้ใช้ใช้อยู่ โดยพิจารณาจากส่วนผสมจริงด้านล่าง
+${L(`งาน: ตรวจ "ความขัดแย้ง (conflict)" ระหว่างผลิตภัณฑ์ที่ผู้ใช้ใช้อยู่ โดยพิจารณาจากส่วนผสมจริงด้านล่าง
 พิจารณาทุกประเด็น: pH ตีกัน, ผลัดเซลล์มากเกินไป (over-exfoliation), ทำให้ active เสื่อมฤทธิ์/ออกซิไดซ์ (deactivation/oxidation), การระคายเคืองสะสม (irritation stacking), active ซ้ำซ้อน (duplicate active), เพิ่มความไวแสง (photosensitivity) และส่วนผสมที่อยู่ใน blacklist ของผู้ใช้
 สำคัญ: ดู "ช่วงเวลาใช้ (AM/PM)" ด้วย ถ้าสองตัวอยู่ช่วงเดียวกัน (same_time=true) ความเสี่ยงสูงกว่าตัวที่แยกเช้า/เย็นอยู่แล้ว
 
@@ -1291,7 +1379,40 @@ ${payload}
 
 - ถ้าไม่พบ conflict ให้ส่ง conflicts: []
 - เรียง conflicts จากรุนแรงมาก→น้อย
-- blacklist: ถ้าเจอส่วนผสม blacklist ในสินค้าใด ให้ใส่เป็น conflict type "blacklist" (product_b/ingredient_b ใส่เป็นชื่อ blacklist ได้)`;
+- blacklist: ถ้าเจอส่วนผสม blacklist ในสินค้าใด ให้ใส่เป็น conflict type "blacklist" (product_b/ingredient_b ใส่เป็นชื่อ blacklist ได้)`,
+`Task: Detect CONFLICTS between the products the user currently uses, based on the real ingredients below.
+Consider every angle: pH clash, over-exfoliation, deactivation/oxidation of actives, irritation stacking, duplicate active, photosensitivity, and ingredients in the user's blacklist.
+Important: also consider usage time (AM/PM) — if two land in the same slot (same_time=true) the risk is higher than if already split AM/PM.
+
+User's skin: ${skin||'(not specified)'}
+User's allergens/avoid (blacklist): ${blacklist.length?blacklist.join(', '):'(none)'}
+
+Products in use:
+${payload}
+
+Reply with JSON ONLY:
+{
+  "conflicts": [
+    {
+      "product_a": "product A name",
+      "product_b": "product B name",
+      "ingredient_a": "the culprit ingredient/active on side A",
+      "ingredient_b": "the culprit ingredient/active on side B",
+      "type": "ph_clash|over_exfoliation|oxidation|deactivation|irritation_stack|duplicate_active|photosensitivity|blacklist",
+      "severity": "high|medium|low",
+      "same_time": true,
+      "mechanism": "explain the chemical/dermatological mechanism of the conflict (in Thai)",
+      "recommendation": "actionable advice, e.g. split AM/PM, alternate days, wait 30 min, drop one (in Thai)",
+      "confidence": "high|medium|low"
+    }
+  ],
+  "safe_pairs": [ { "pair": "A + B", "why": "why they work well together (in Thai)" } ],
+  "summary": "overall safety summary of the routine, 1-3 sentences (in Thai)"
+}
+
+- if no conflicts, return conflicts: []
+- sort conflicts from most→least severe
+- blacklist: if a blacklisted ingredient is found in any product, add it as conflict type "blacklist" (product_b/ingredient_b may be the blacklist name)`)}`;
 
     const out=await callGemini(prompt,[]);
     const data=parseJSON(out);
@@ -1461,7 +1582,7 @@ function cachedIngredientDigest(){
 
 function buildCfChat(selected, conflictData){
   const skin=get(LS.skin), blacklist=getBlacklist();
-  const ctx=`${EXPERT_PERSONA}
+  const ctx=`${PERSONA()}
 
 ผู้ใช้ต้องการพูดคุย/ปรึกษาเรื่องความเข้ากันของส่วนผสมระหว่างผลิตภัณฑ์ที่เลือกด้านล่าง โดยอ้างอิง "ส่วนผสมจริง"
 ตอบเป็นภาษาไทย กระชับ เป็นกันเอง อ้างอิงส่วนผสม/ค่า pH/ช่วงเวลา (AM/PM) ที่ให้มา และเวลาแนะนำให้บอกเหตุผลสั้น ๆ
@@ -1741,7 +1862,7 @@ async function buildRoutine(){
     hasList?`- รายการครีมที่ผู้ใช้พิมพ์มา (รูปแบบอิสระ คั่นด้วยบรรทัดหรือจุลภาค):\n${listText}`:''
   ].filter(Boolean).join('\n');
   const prompt=
-`${EXPERT_PERSONA}
+`${PERSONA()}
 
 งาน: รวบรวมผลิตภัณฑ์จากแหล่งข้อมูลต่อไปนี้ทั้งหมด:
 ${sources}
@@ -1850,7 +1971,7 @@ async function scanProduct(){
       const srcA = imgs.C1.length?'(ดูจากรูปสินค้า A ที่แนบ)':`ชื่อที่ผู้ใช้พิมพ์: ${nameC1}`;
       const srcB = imgs.C2.length?'(ดูจากรูปสินค้า B ที่แนบ)':`ชื่อที่ผู้ใช้พิมพ์: ${nameC2}`;
       const prompt=
-`${EXPERT_PERSONA}
+`${PERSONA()}
 
 งาน: เปรียบเทียบสินค้า 2 ตัว
 สินค้า A: ${srcA}
@@ -1875,9 +1996,9 @@ ${ctx}
     }else{
       const src = imgs.S.length?'ดูรูปสินค้าที่แนบมา (อาจหลายมุมของชิ้นเดียวกัน)':`ค้นหาสินค้าจากชื่อที่ผู้ใช้พิมพ์: "${nameS}"`;
       const prompt=
-`${EXPERT_PERSONA}
+`${PERSONA()}
 
-งาน: ${src}
+${L(`งาน: ${src}
 ขั้นตอน:
 1) ระบุก่อนว่าผลิตภัณฑ์นี้ "ชูจุดขาย/สารเด่น (hero / signature)" อะไรที่แบรนด์โฆษณา เช่น โสมแดงเกาหลีของ Sulwhasoo, snail ของ COSRX, centella/cica, vitamin C, retinol ฯลฯ
 2) ใช้ web search หา INCI จริง (INCIDecoder/แบรนด์/Watsons/Olive Young) แล้ววิเคราะห์ส่วนผสมให้ครบและละเอียด
@@ -1913,7 +2034,44 @@ ${ctx}
 }
 - hero: สารเด่นที่แบรนด์ใช้เป็นจุดขายของผลิตภัณฑ์นี้ และทุกตัวต้องมีอยู่ใน ingredients ด้วย
 - ingredients: ลิสต์ส่วนผสมสำคัญให้ครบเท่าที่ทราบ พร้อมประโยชน์รายตัว
-- alternatives: 1-3 ตัว ที่เหมาะกับผิว/เป้าหมายของผู้ใช้`;
+- alternatives: 1-3 ตัว ที่เหมาะกับผิว/เป้าหมายของผู้ใช้`,
+`Task: ${src}
+Steps:
+1) First identify the HERO / signature ingredient(s) the brand markets this product for, e.g. Korean red ginseng for Sulwhasoo, snail for COSRX, centella/cica, vitamin C, retinol, etc.
+2) Use web search to find the real INCI (INCIDecoder/brand/Watsons/Olive Young) and analyze ingredients thoroughly and completely.
+3) Very important: the brand's hero/signature ingredient(s) MUST appear in the ingredients list with correct INCI — never omit them (e.g. Sulwhasoo must include ginseng, Panax Ginseng Root Extract).
+4) Check against the user's current routine: which item(s) it overlaps with, which it conflicts with, where to insert it, and whether there's a better/cheaper alternative.
+${ctx}
+
+Reply with JSON ONLY:
+{
+  "type":"single",
+  "name":"product name",
+  "brand":"brand",
+  "price":"approx price in Thailand e.g. ~590 THB or 'ไม่พบข้อมูลราคา'",
+  "texture":"texture e.g. gel/cream/water or '-'",
+  "summary_benefit":"what you get from using it, 1-2 sentences (in Thai)",
+  "hero":[ { "name":"hero/signature ingredient e.g. red ginseng extract", "inci":"INCI e.g. Panax Ginseng Root Extract", "why":"why it's the selling point / what it does" } ],
+  "best_for":["skin concerns/goals it suits, e.g. acne, dark spots"],
+  "skin_fit":"who it suits / who it doesn't (in Thai)",
+  "ingredients":[ { "name":"ingredient name", "inci":"INCI name", "benefit":"what it does (in Thai)", "irritation":"low|medium|high", "actives_tag": null } ],
+  "key_actives":[ { "name":"", "type":"retinoid|aha|bha|vitc|niacinamide|other", "percent":"approx %", "benefit":"" } ],
+  "pros":["pros (in Thai)"],
+  "cons":["cons/cautions (in Thai)"],
+  "how_to_use":{ "when":"AM|PM|Both", "frequency":"frequency e.g. daily / 2-3x per week (in Thai)", "order":"which step e.g. after toner, before moisturizer (in Thai)" },
+  "blacklist_hits":["ingredients matching the user's blacklist"],
+  "routine_fit":{
+     "verdict":"good" | "warn" | "bad",
+     "headline":"short verdict: add/replace/avoid (in Thai)",
+     "overlap":"overlaps/duplicate function with which routine item (if any) — drop the old one or layer them (in Thai)",
+     "conflict":"conflicts with which routine item and why (pH, over-exfoliation, etc.); if none say so (in Thai)",
+     "add":"if adding, which step and AM/PM (in Thai)"
+  },
+  "alternatives":[ { "name":"", "brand":"", "why":"why it's interesting/better/cheaper (in Thai)" } ]
+}
+- hero: the brand's signature ingredients for this product; every one must also appear in ingredients
+- ingredients: list key ingredients as completely as known, with per-item benefit
+- alternatives: 1-3 that suit the user's skin/goals`)}`;
       const out=await callGemini(prompt, imgs.S.length?['S']:[]);
       data=parseJSON(out);
       renderSingle(data);
@@ -2047,7 +2205,7 @@ function initChat(scanData, userCtx){
     : `${scanData.brand?scanData.brand+' ':''}${scanData.name||'สินค้า'}`;
 
   // System context as first user message (will be hidden from display)
-  const systemMsg = `${EXPERT_PERSONA}
+  const systemMsg = `${PERSONA()}
 
 ตอบคำถามเกี่ยวกับสินค้า: ${productName}
 ผลการวิเคราะห์สินค้า: ${JSON.stringify(scanData)}
@@ -2176,7 +2334,7 @@ async function addToRoutineProduct(productName, brand, scanData){
   const skinFit = scanData && scanData.skin_fit ? scanData.skin_fit : '';
 
   const prompt =
-`${EXPERT_PERSONA}
+`${PERSONA()}
 
 งาน: ช่วยเพิ่มสินค้าใหม่เข้ารูทีนและจัดเรียงลำดับใหม่ให้ถูกต้อง
 
@@ -2303,9 +2461,9 @@ async function analyzeProfile(){
   const ingCount=productsWithIngredientData().length;
 
   const prompt=
-`${EXPERT_PERSONA}
+`${PERSONA()}
 
-งาน: วิเคราะห์โปรไฟล์ผิวต่อไปนี้อย่างละเอียดเชิงลึก:
+${L(`งาน: วิเคราะห์โปรไฟล์ผิวต่อไปนี้อย่างละเอียดเชิงลึก:
 
 สภาพผิว: ${skin||'(ไม่ระบุ)'}
 เป้าหมาย: ${goals||'(ไม่ระบุ)'}
@@ -2358,7 +2516,61 @@ ${ingDigest}
   • "situational" = ใช้สลับตามสถานการณ์ เช่น สลับวัน/สลับเช้า-เย็น (กรอก how + unique)
 - optimized_routine: เก็บตัวที่ verdict=layer/situational ไว้ทั้งคู่และจัดลำดับให้ถูก ตัดออกเฉพาะตัวที่ verdict=redundant; เรียงเนื้อบาง→หนัก
 - gap_analysis: 3-5 รายการ, แต่ละ tier recommendations: 2-3 สินค้า, synergy_tips: 3-5 รายการ
-${ingDigest?'- เมื่อมีข้อมูลส่วนผสมจริงด้านบน ให้ duplicates/synergy_tips/gap_analysis อ้างอิงจาก active และส่วนผสมจริง (เช่น ดูว่าแต่ละตัวมีส่วนผสมอื่นที่อีกตัวไม่มีไหม, ชน active เดียวกัน, pH ขัดกัน) ไม่ใช่เดาจากชื่อสินค้า':''}`;
+${ingDigest?'- เมื่อมีข้อมูลส่วนผสมจริงด้านบน ให้ duplicates/synergy_tips/gap_analysis อ้างอิงจาก active และส่วนผสมจริง (เช่น ดูว่าแต่ละตัวมีส่วนผสมอื่นที่อีกตัวไม่มีไหม, ชน active เดียวกัน, pH ขัดกัน) ไม่ใช่เดาจากชื่อสินค้า':''}`,
+`Task: Analyze the following skin profile in deep detail:
+
+Skin: ${skin||'(not specified)'}
+Goals: ${goals||'(not specified)'}
+Current AM routine: ${routineAM}
+Current PM routine: ${routinePM}
+Allergens/avoid: ${blacklist.length?blacklist.join(', '):'(none)'}
+${ingDigest?`
+Real INCI of the products in use — already fetched; use this for deep analysis (reference real actives, %, pH, irritants) instead of guessing from product names:
+${ingDigest}
+`:''}
+Analyze everything, then reply with JSON ONLY:
+{
+  "duplicates": [
+    {
+      "items": ["product A", "product B"],
+      "overlap": "overlapping function/ingredient, e.g. both contain Vitamin C as antioxidant",
+      "verdict": "redundant" | "layer" | "situational",
+      "reason": "analyze using real ingredients and layering order: are they so overlapping that one suffices, or does each have other ingredients/functions the other lacks so they can be used together if layered right (in Thai)",
+      "unique": [ { "name": "product", "benefit": "its edge/ingredient the other lacks (reason to keep it) (in Thai)" } ],
+      "order": ["apply first", "apply after"],
+      "how": "how to use together/sequence, e.g. thin before thick, wait, or alternate AM/PM (in Thai)",
+      "keep": "recommended to keep (redundant case only)",
+      "remove": "recommended to drop (redundant case only)"
+    }
+  ],
+  "gap_analysis": [
+    { "issue": "issue found e.g. missing SPF (in Thai)", "why": "why it matters (in Thai)", "severity": "high" | "medium" | "low" }
+  ],
+  "optimized_routine": {
+    "am": ["step 1 product", "step 2 ..."],
+    "pm": ["step 1 product", "step 2 ..."],
+    "changes": "summary of changes vs current, e.g. dropped X (duplicate of Y) and reordered (in Thai)"
+  },
+  "recommendations": {
+    "budget": [
+      { "name": "product", "brand": "brand", "price": "approx e.g. ~250 THB", "why": "why it suits this skin (in Thai)" }
+    ],
+    "mid": [ { "name":"", "brand":"", "price":"", "why":"" } ],
+    "premium": [ { "name":"", "brand":"", "price":"", "why":"" } ]
+  },
+  "synergy_tips": [
+    { "tip": "tip e.g. Vitamin C + Niacinamide work well together because... (in Thai)", "type": "good" | "bad" }
+  ]
+}
+
+- duplicates: if no overlapping-function pairs, return []
+- verdict is very important: do NOT immediately say "remove" when functions look similar; first decide:
+  • "redundant" = almost fully overlapping, one suffices (fill keep/remove)
+  • "layer" = main function similar but each has other ingredients/benefits the other lacks → usable together if layered (fill order + how + unique; do NOT fill remove)
+  • "situational" = use alternately, e.g. alternate days / AM-PM (fill how + unique)
+- optimized_routine: keep both for layer/situational and order correctly; drop only verdict=redundant; order thin→thick
+- gap_analysis: 3-5 items; each recommendations tier: 2-3 products; synergy_tips: 3-5 items
+${ingDigest?'- when real ingredient data is provided above, base duplicates/synergy_tips/gap_analysis on real actives and ingredients (e.g. whether each has ingredients the other lacks, same-active clash, pH conflict), not guesses from product names':''}`)}`;
 
   try{
     const out=await callGemini(prompt,[]);
@@ -2539,7 +2751,7 @@ async function refreshRecommendations(){
   $('statusRec').innerHTML='<div class="loading"><div class="spin"></div> กำลังหาสินค้าแนะนำชุดใหม่…</div>';
 
   const prompt=
-`${EXPERT_PERSONA}
+`${PERSONA()}
 
 งาน: แนะนำสินค้าที่เหมาะกับผู้ใช้นี้ โดยขอ "ชุดใหม่" ที่แตกต่างจากรอบก่อน
 
@@ -2639,7 +2851,7 @@ function refreshWishBtns(){
 /* ── AI Suggestions Chat ── */
 function initSugChat(data, userCtx){
   const ingDigest=cachedIngredientDigest();
-  const ctx=`${EXPERT_PERSONA}
+  const ctx=`${PERSONA()}
 
 ตอบคำถามต่อยอดจากผลวิเคราะห์โปรไฟล์ผิวของผู้ใช้
 ผลวิเคราะห์ล่าสุด: ${JSON.stringify(data)}
