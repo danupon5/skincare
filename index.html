@@ -218,6 +218,11 @@
   .ing-tbl .nm{font-weight:600;color:var(--ink);}
   .ing-tbl .inci{color:var(--ink-faint);font-size:10.5px;}
   .ing-tag{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;background:rgba(231,160,176,.16);color:var(--rose);margin-left:4px;}
+  .ing-benefit{font-size:11px;color:var(--ink-dim);margin-top:4px;line-height:1.5;}
+  .ing-benefit .ev{font-size:9px;color:var(--ink-faint);margin-left:5px;white-space:nowrap;}
+  .ing-targets{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;}
+  .ing-target{font-size:9.5px;padding:1px 6px;border-radius:999px;background:rgba(158,200,168,.14);color:var(--sage);}
+  .ing-summary{font-size:12px;color:var(--ink);background:rgba(158,200,168,.08);border:1px solid var(--line);border-radius:9px;padding:8px 11px;margin:0 0 10px;line-height:1.5;}
   .irr-high{color:var(--danger);font-weight:600;}
   .irr-medium{color:var(--warn);}
   .irr-low{color:var(--ink-dim);}
@@ -1105,8 +1110,11 @@ async function fetchIngredientDetail(product){
     "type": "ประเภทผลิตภัณฑ์ เช่น Vitamin C serum, BHA exfoliant, Retinol cream, Cleanser, Sunscreen",
     "inci_confidence": "official" | "estimated",
     "ph": "ค่า pH โดยประมาณ เช่น 3.2-3.8 หรือ '-' ถ้าไม่เกี่ยวข้อง",
+    "texture": "เนื้อสัมผัส เช่น เจล, ครีม, น้ำ, โลชั่น, ออยล์ หรือ '-'",
+    "summary_benefit": "ประโยชน์รวมของผลิตภัณฑ์นี้ 1-2 ประโยค (ใช้แล้วได้อะไร)",
+    "best_for": ["ปัญหา/เป้าหมายผิวที่เหมาะ เช่น สิว, รอยดำ, ริ้วรอย, ผิวแห้ง"],
     "key_actives": [
-      { "name": "ชื่อ active", "type": "retinoid|aha|bha|vitc|niacinamide|peptide|benzoyl_peroxide|azelaic|vitamin_a|other", "percent": "% โดยประมาณ เช่น 10% หรือ '-'" }
+      { "name": "ชื่อ active", "type": "retinoid|aha|bha|vitc|niacinamide|peptide|benzoyl_peroxide|azelaic|vitamin_a|other", "percent": "% โดยประมาณ เช่น 10% หรือ '-'", "benefit": "ประโยชน์หลักของ active ตัวนี้สั้น ๆ" }
     ],
     "flags": { "photosensitizing": true|false, "fungal_acne_safe": true|false, "pregnancy_safe": true|false }
   },
@@ -1117,13 +1125,16 @@ async function fetchIngredientDetail(product){
       "function": "หน้าที่ เช่น humectant, emollient, active, surfactant, preservative, fragrance, solvent",
       "category": "active" | "functional" | "other",
       "percent": "% โดยประมาณ ถ้าพอประเมินได้ ไม่งั้น '-'",
+      "benefit": "ประโยชน์/ผลต่อผิวของส่วนผสมตัวนี้ กระชับชัดเจน (เช่น 'เพิ่มความชุ่มชื้น กักเก็บน้ำในผิว', 'กระตุ้นคอลลาเจน ลดริ้วรอย', 'ผลัดเซลล์ผิว ลดสิวอุดตัน')",
+      "targets": ["เป้าหมาย/ปัญหาผิวที่ช่วย เช่น สิว, รอยดำ, ริ้วรอย, ความชุ่มชื้น, รูขุมขน"],
+      "evidence": "strong" | "moderate" | "limited",
       "comedogenic": 0,
       "irritation": "low" | "medium" | "high",
       "ph_sensitive": true|false,
       "photosensitizing": true|false,
       "pregnancy_caution": true|false,
       "actives_tag": null,
-      "note": "หมายเหตุสั้น ๆ ถ้ามี"
+      "note": "หมายเหตุ/ข้อควรระวังเฉพาะตัวสั้น ๆ ถ้ามี"
     }
   ],
   "notes": "สรุปสั้น ๆ เกี่ยวกับสูตร/ข้อควรระวังของผลิตภัณฑ์นี้"
@@ -1131,6 +1142,8 @@ async function fetchIngredientDetail(product){
 
 ข้อกำหนด:
 - ingredients: ลิสต์ให้ครบทุกตัวเท่าที่ทราบ เรียงตามลำดับความเข้มข้น (มาก→น้อย) ถ้าเป็นไปได้
+- benefit: ต้องกรอกทุกตัว แม้เป็นสารช่วยสูตร (เช่น สารกันเสีย/อิมัลซิไฟเออร์) ก็ให้ระบุบทบาทสั้น ๆ — ข้อมูลนี้สำคัญมากเพราะจะถูกเก็บไว้ใช้ตอบตอนวิเคราะห์
+- evidence: ระดับหลักฐานทางวิทยาศาสตร์ของประโยชน์ที่อ้าง (strong=มีงานวิจัยหนุนชัด, moderate=พอมี, limited=น้อย/เป็นทฤษฎี)
 - comedogenic: ใส่เป็นตัวเลข 0-5
 - actives_tag: ใส่ค่าเช่น "retinoid","aha","bha","vitc","niacinamide" เฉพาะตัวที่เป็น active สำคัญ ไม่งั้น null
 - เน้นความถูกต้องของส่วนผสมที่เป็น active และตัวที่ก่อระคายเคือง/แพ้บ่อย${skin?`\n- บริบทผิวผู้ใช้ (เพื่อ note): ${skin}`:''}`;
@@ -1142,6 +1155,7 @@ async function fetchIngredientDetail(product){
     name: product.name, brand: product.brand||'',
     fetchedAt: new Date().toISOString(),
     model: get(LS.model,'gemini-3.1-flash-lite'),
+    v: 2,   // schema: v2 adds per-ingredient benefit/targets/evidence + product summary_benefit/best_for
     product: data.product||{},
     ingredients: Array.isArray(data.ingredients)?data.ingredients:[],
     notes: data.notes||''
@@ -1236,6 +1250,7 @@ function ingTag(t){
   const map={retinoid:'Retinoid',aha:'AHA',bha:'BHA',vitc:'Vit C',niacinamide:'Niacinamide',peptide:'Peptide',benzoyl_peroxide:'BPO',azelaic:'Azelaic',vitamin_a:'Vit A'};
   return map[t]||t;
 }
+const EVIDENCE_LABEL={strong:'หลักฐานชัด',moderate:'พอมีหลักฐาน',limited:'หลักฐานจำกัด'};
 function renderIngredientProfiles(list){
   const card=$('ingProfileCard'), c=$('ingProfileList');
   const items=list.map(p=>getIngredientFor(prodKey(p.name,p.brand))).filter(Boolean);
@@ -1243,34 +1258,42 @@ function renderIngredientProfiles(list){
   card.style.display='';
   c.innerHTML=items.map(d=>{
     const pr=d.product||{};
-    const acts=(pr.key_actives||[]).map(a=>`<span class="ing-chip">${esc(a.name)}${a.percent&&a.percent!=='-'?' '+esc(a.percent):''}</span>`).join('');
-    const rows=(d.ingredients||[]).map(x=>`
-      <tr>
-        <td><span class="nm">${esc(x.name||'')}</span>${x.actives_tag?`<span class="ing-tag">${esc(ingTag(x.actives_tag))}</span>`:''}${x.inci&&x.inci!==x.name?`<div class="inci">${esc(x.inci)}</div>`:''}</td>
+    const acts=(pr.key_actives||[]).map(a=>`<span class="ing-chip" title="${esc(a.benefit||'')}">${esc(a.name)}${a.percent&&a.percent!=='-'?' '+esc(a.percent):''}</span>`).join('');
+    const rows=(d.ingredients||[]).map(x=>{
+      const targets=(x.targets&&x.targets.length)?`<div class="ing-targets">${x.targets.map(t=>`<span class="ing-target">${esc(t)}</span>`).join('')}</div>`:'';
+      const benefit=x.benefit?`<div class="ing-benefit">✨ ${esc(x.benefit)}${x.evidence&&EVIDENCE_LABEL[x.evidence]?`<span class="ev">· ${EVIDENCE_LABEL[x.evidence]}</span>`:''}</div>`:'';
+      return `<tr>
+        <td><span class="nm">${esc(x.name||'')}</span>${x.actives_tag?`<span class="ing-tag">${esc(ingTag(x.actives_tag))}</span>`:''}${x.inci&&x.inci!==x.name?`<div class="inci">${esc(x.inci)}</div>`:''}${benefit}${targets}</td>
         <td>${esc(x.function||'-')}</td>
         <td>${esc(x.percent||'-')}</td>
         <td>${x.comedogenic!=null?esc(String(x.comedogenic)):'-'}</td>
         <td class="irr-${esc(x.irritation||'low')}">${esc(x.irritation||'-')}</td>
         <td>${[x.ph_sensitive?'pH':'',x.photosensitizing?'☀️':'',x.pregnancy_caution?'🤰':''].filter(Boolean).join(' ')||'-'}</td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
+    const oldSchema = d.v!==2;
     return `<details class="ing-card">
       <summary>${esc(d.name)}${d.brand?` <span class="pb" style="color:var(--ink-faint);font-weight:400;">${esc(d.brand)}</span>`:''}
         <span class="cf-cache ok" style="margin-left:auto;">${(d.ingredients||[]).length} ส่วนผสม</span>
       </summary>
       <div class="ing-body">
+        ${pr.summary_benefit?`<div class="ing-summary">💡 ${esc(pr.summary_benefit)}</div>`:''}
         <div class="ing-meta-row">
           <span class="ing-chip">ประเภท: ${esc(pr.type||'-')}</span>
+          ${pr.texture?`<span class="ing-chip">เนื้อ: ${esc(pr.texture)}</span>`:''}
           <span class="ing-chip">pH: ${esc(pr.ph||'-')}</span>
           <span class="ing-chip">INCI: ${pr.inci_confidence==='official'?'ทางการ':'ประมาณ'}</span>
           ${pr.flags&&pr.flags.photosensitizing?'<span class="ing-chip">☀️ ไวแสง</span>':''}
           ${pr.flags&&pr.flags.pregnancy_safe===false?'<span class="ing-chip">🤰 เลี่ยงตอนตั้งครรภ์</span>':''}
         </div>
+        ${(pr.best_for&&pr.best_for.length)?`<div class="ing-meta-row"><b style="font-size:11.5px;color:var(--ink-dim);align-self:center;">เหมาะกับ:</b> ${pr.best_for.map(b=>`<span class="ing-target">${esc(b)}</span>`).join('')}</div>`:''}
         ${acts?`<div class="ing-meta-row"><b style="font-size:11.5px;color:var(--ink-dim);align-self:center;">Active หลัก:</b> ${acts}</div>`:''}
         <table class="ing-tbl">
-          <thead><tr><th>ส่วนผสม</th><th>หน้าที่</th><th>%</th><th>Com.</th><th>ระคาย</th><th>ธง</th></tr></thead>
+          <thead><tr><th>ส่วนผสม + ประโยชน์</th><th>หน้าที่</th><th>%</th><th>Com.</th><th>ระคาย</th><th>ธง</th></tr></thead>
           <tbody>${rows||'<tr><td colspan="6" style="color:var(--ink-faint);">ไม่มีข้อมูลส่วนผสม</td></tr>'}</tbody>
         </table>
         ${d.notes?`<div class="cf-row" style="margin-top:10px;">📝 ${esc(d.notes)}</div>`:''}
+        ${oldSchema?`<div class="hint" style="margin-top:8px;color:var(--warn);">ℹ️ ข้อมูลชุดเดิม (ยังไม่มีประโยชน์รายส่วนผสม) — กด ↻ ที่การ์ดด้านบนเพื่อดึงใหม่แบบละเอียด</div>`:''}
         <div class="hint" style="margin-top:8px;">อัปเดตเมื่อ ${esc(fmtFetched(d.fetchedAt))}</div>
       </div>
     </details>`;
@@ -1351,9 +1374,14 @@ function cfProductContext(p){
   const d=getIngredientFor(prodKey(p.name,p.brand));
   if(!d) return `- ${p.name}${p.brand?' ('+p.brand+')':''}: (ยังไม่มีข้อมูลส่วนผสม)`;
   const pr=d.product||{};
-  const ings=(d.ingredients||[]).map(x=>`${x.name}${x.actives_tag?` <${x.actives_tag}>`:''}${x.irritation==='high'?' (ระคายสูง)':''}`).join(', ');
-  const acts=(pr.key_actives||[]).map(a=>`${a.name}(${a.type}${a.percent&&a.percent!=='-'?' '+a.percent:''})`).join(', ');
-  return `- ${p.name}${p.brand?' ('+p.brand+')':''} | ใช้ช่วง ${whenLabel(p.when)} | ประเภท ${pr.type||'-'} | pH ${pr.ph||'-'}\n  actives: ${acts||'-'}\n  ส่วนผสม: ${ings||'-'}`;
+  // ingredient line now carries the stored benefit so analysis/chat can answer without re-deriving
+  const ings=(d.ingredients||[]).map(x=>{
+    const tags=`${x.actives_tag?` <${x.actives_tag}>`:''}${x.irritation==='high'?' (ระคายสูง)':''}`;
+    return `${x.name}${x.percent&&x.percent!=='-'?` ${x.percent}`:''}${tags}${x.benefit?` — ${x.benefit}`:''}`;
+  }).join('; ');
+  const acts=(pr.key_actives||[]).map(a=>`${a.name}(${a.type}${a.percent&&a.percent!=='-'?' '+a.percent:''})${a.benefit?': '+a.benefit:''}`).join(', ');
+  const best=(pr.best_for&&pr.best_for.length)?` | เหมาะกับ ${pr.best_for.join(', ')}`:'';
+  return `- ${p.name}${p.brand?' ('+p.brand+')':''} | ใช้ช่วง ${whenLabel(p.when)} | ประเภท ${pr.type||'-'} | pH ${pr.ph||'-'}${best}${pr.summary_benefit?`\n  ประโยชน์รวม: ${pr.summary_benefit}`:''}\n  actives: ${acts||'-'}\n  ส่วนผสม (พร้อมประโยชน์): ${ings||'-'}`;
 }
 
 // In-use products that already have cached INCI detail — reused by AI Suggestions too.
