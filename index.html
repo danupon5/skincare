@@ -662,6 +662,7 @@
         <button class="btn ghost sm" id="refreshSug" onclick="analyzeProfile()" style="display:none;">🔄 Refresh</button>
       </div>
       <div id="statusSug"></div>
+      <div class="hint" id="sugIngHint" style="margin-top:8px;display:none;"></div>
       <div class="hint" style="margin-top:8px;">ต้องกรอก Skin Profile และ Skin Goals ใน My Profile ก่อนเพื่อผลลัพธ์ที่แม่นยำ</div>
     </div>
 
@@ -1353,6 +1354,13 @@ function cfProductContext(p){
   const ings=(d.ingredients||[]).map(x=>`${x.name}${x.actives_tag?` <${x.actives_tag}>`:''}${x.irritation==='high'?' (ระคายสูง)':''}`).join(', ');
   const acts=(pr.key_actives||[]).map(a=>`${a.name}(${a.type}${a.percent&&a.percent!=='-'?' '+a.percent:''})`).join(', ');
   return `- ${p.name}${p.brand?' ('+p.brand+')':''} | ใช้ช่วง ${whenLabel(p.when)} | ประเภท ${pr.type||'-'} | pH ${pr.ph||'-'}\n  actives: ${acts||'-'}\n  ส่วนผสม: ${ings||'-'}`;
+}
+
+// In-use products that already have cached INCI detail — reused by AI Suggestions too.
+function productsWithIngredientData(){ return cfProducts().filter(p=>getIngredientFor(prodKey(p.name,p.brand))); }
+function cachedIngredientDigest(){
+  const list=productsWithIngredientData();
+  return list.length ? list.map(cfProductContext).join('\n\n') : '';
 }
 
 function buildCfChat(selected, conflictData){
@@ -2054,6 +2062,9 @@ async function analyzeProfile(){
   $('statusSug').innerHTML='<div class="loading" style="margin-top:10px;"><div class="spin"></div> กำลังวิเคราะห์โปรไฟล์ผิวของคุณ…</div>';
   $('sugOutput').style.display='none';
 
+  const ingDigest=cachedIngredientDigest();
+  const ingCount=productsWithIngredientData().length;
+
   const prompt=
 `${EXPERT_PERSONA}
 
@@ -2064,7 +2075,10 @@ async function analyzeProfile(){
 รูทีนเช้าปัจจุบัน: ${routineAM}
 รูทีนเย็นปัจจุบัน: ${routinePM}
 ส่วนผสมที่แพ้/เลี่ยง: ${blacklist.length?blacklist.join(', '):'(ไม่มี)'}
-
+${ingDigest?`
+ข้อมูลส่วนผสมจริง (INCI) ของสินค้าที่ใช้อยู่ — ดึงไว้แล้ว ให้ใช้ข้อมูลนี้วิเคราะห์เชิงลึก (อ้างอิง active จริง, %, pH, ตัวระคายเคือง) แทนการเดาจากชื่อสินค้า:
+${ingDigest}
+` :''}
 ให้วิเคราะห์ทั้งหมด แล้วตอบเป็น JSON เท่านั้น:
 {
   "duplicates": [
@@ -2097,13 +2111,16 @@ async function analyzeProfile(){
 
 - duplicates: ถ้าไม่มีของซ้ำให้ส่ง array ว่าง []
 - optimized_routine: รูทีนที่ตัดของซ้ำออกแล้ว จัดลำดับถูกต้อง (บาง→หนัก)
-- gap_analysis: 3-5 รายการ, แต่ละ tier recommendations: 2-3 สินค้า, synergy_tips: 3-5 รายการ`;
+- gap_analysis: 3-5 รายการ, แต่ละ tier recommendations: 2-3 สินค้า, synergy_tips: 3-5 รายการ
+${ingDigest?'- เมื่อมีข้อมูลส่วนผสมจริงด้านบน ให้ duplicates/synergy_tips/gap_analysis อ้างอิงจาก active และส่วนผสมจริง (เช่น ชน active เดียวกัน, pH ขัดกัน) ไม่ใช่เดาจากชื่อสินค้า':''}`;
 
   try{
     const out=await callGemini(prompt,[]);
     const data=parseJSON(out);
     renderSuggestions(data);
     initSugChat(data, { skin, goals, routineAM, routinePM });
+    $('sugIngHint').style.display = ingCount?'block':'none';
+    if(ingCount) $('sugIngHint').innerHTML=`🧬 วิเคราะห์เชิงลึกโดยใช้ข้อมูลส่วนผสมจริงของ <b>${ingCount}</b> สินค้าที่ดึงไว้แล้ว (จาก Conflict Check)`;
     $('statusSug').innerHTML='';
     $('sugOutput').style.display='block';
     $('refreshSug').style.display='';
@@ -2355,13 +2372,16 @@ function refreshWishBtns(){
 
 /* ── AI Suggestions Chat ── */
 function initSugChat(data, userCtx){
+  const ingDigest=cachedIngredientDigest();
   const ctx=`${EXPERT_PERSONA}
 
 ตอบคำถามต่อยอดจากผลวิเคราะห์โปรไฟล์ผิวของผู้ใช้
 ผลวิเคราะห์ล่าสุด: ${JSON.stringify(data)}
 ข้อมูลผู้ใช้: สภาพผิว ${userCtx.skin||'(ไม่ระบุ)'} | เป้าหมาย ${userCtx.goals||'(ไม่ระบุ)'}
-รูทีนเช้า: ${userCtx.routineAM} | รูทีนเย็น: ${userCtx.routinePM}
-ตอบเป็นภาษาไทย กระชับ เป็นมิตร`;
+รูทีนเช้า: ${userCtx.routineAM} | รูทีนเย็น: ${userCtx.routinePM}${ingDigest?`
+ข้อมูลส่วนผสมจริง (INCI) ของสินค้าที่ใช้อยู่ (ดึงไว้แล้ว ใช้ตอบเชิงลึกระดับส่วนผสมได้):
+${ingDigest}`:''}
+ตอบเป็นภาษาไทย กระชับ เป็นมิตร และเมื่อมีข้อมูลส่วนผสมจริงให้อ้างอิง active/% /pH ที่ให้มา`;
 
   sugChatHistory=[
     { role:'user', text:ctx },
