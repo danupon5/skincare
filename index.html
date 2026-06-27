@@ -437,8 +437,8 @@
       <div style="margin-top:12px;">
         <label class="fld">ภาษา Prompt (ทดลองเทียบผลลัพธ์)</label>
         <select id="promptLang">
+          <option value="en">Prompt อังกฤษ → ผลไทย — แม่นเชิงเทคนิค/ถูก token (ค่าเริ่มต้น)</option>
           <option value="th">Prompt ไทย (เดิม) — โทนเป็นธรรมชาติ</option>
-          <option value="en">Prompt อังกฤษ → ผลไทย — แม่นเชิงเทคนิค/ถูก token</option>
         </select>
         <div class="hint">เปลี่ยนได้ทุกเมื่อ ระบบเก็บทั้งสองชุด prompt ไว้ สลับเพื่อเทียบผลลัพธ์ได้</div>
       </div>
@@ -863,7 +863,7 @@ let cfChatHistory = [];         // Conflict Check chat, session-only
 let cfChatPicked = null;        // Set<prodKey> chosen for chat; null = default all in-use
 
 /* ── Prompt language mode (toggle in settings; Thai is the original, kept for rollback/compare) ── */
-function promptLang(){ return get(LS.promptLang,'th')==='en' ? 'en' : 'th'; }
+function promptLang(){ return get(LS.promptLang,'en')==='th' ? 'th' : 'en'; }
 // pick Thai or English variant based on the saved setting
 function L(th, en){ return promptLang()==='en' ? en : th; }
 
@@ -908,7 +908,7 @@ function toast(msg,kind=''){
 function init(){
   const m = get(LS.model,'gemini-3.1-flash-lite'); $('model').value = m;
   if(![...$('model').options].some(o=>o.value===m)) $('model').value='gemini-3.1-flash-lite';
-  $('promptLang').value = get(LS.promptLang,'th');
+  $('promptLang').value = get(LS.promptLang,'en');
   $('routineAM').value = get(LS.routineAM);
   $('routinePM').value = get(LS.routinePM);
   $('skinProfile').value = get(LS.skin);
