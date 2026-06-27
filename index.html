@@ -440,7 +440,6 @@
   <!-- TABS -->
   <div class="tabs">
     <button class="tab active" data-tab="profile">👤 My Profile</button>
-    <button class="tab" data-tab="builder">🧪 Routine Builder</button>
     <button class="tab" data-tab="conflict">⚗️ Conflict Check</button>
     <button class="tab" data-tab="scanner">🔍 Product Scanner</button>
     <button class="tab" data-tab="suggest">✨ AI Suggestions</button>
@@ -449,6 +448,39 @@
 
   <!-- ============ TAB 1: PROFILE ============ -->
   <section class="view active" id="view-profile">
+
+    <div class="card">
+      <h2><span class="ic">🧪</span> Routine Builder</h2>
+      <p class="sub">ใส่รูปครีม และ/หรือ พิมพ์รายการครีมเยอะ ๆ ก็ได้ — AI จะอ่านเองว่ามีโปรดักต์อะไรบ้าง แล้วจัดลำดับการทาให้</p>
+
+      <label class="fld">📸 รูปครีม (ใส่หรือไม่ใส่ก็ได้)</label>
+      <div class="drop" id="dropB">
+        <div class="big">📸</div>
+        <div class="t">แตะเพื่อเลือกรูปจาก Gallery</div>
+        <div class="s">รูปเดียวหลายขวดก็ได้ · รองรับหลายรูป · JPG / PNG / WEBP</div>
+        <input type="file" id="fileB" accept="image/*" multiple hidden />
+      </div>
+      <div class="thumbs" id="thumbsB"></div>
+
+      <label class="fld" style="margin-top:14px;">📝 รายการครีม (พิมพ์ชื่อมาเยอะ ๆ ได้เลย)</label>
+      <textarea id="listB" placeholder="พิมพ์มาแบบไหนก็ได้ AI อ่านเอง เช่น&#10;CeraVe Foaming Cleanser&#10;The Ordinary Niacinamide 10%&#10;ครีมกันแดด Anessa&#10;Retinol 0.3, La Roche-Posay moisturizer ..."></textarea>
+      <div class="hint">ใส่ได้ทั้งบรรทัดละชื่อ หรือคั่นด้วยจุลภาค — ไม่ต้องเป๊ะ AI จะระบุให้</div>
+
+      <div class="row" style="margin-top:14px;">
+        <button class="btn primary" id="runB" onclick="buildRoutine()">✨ สร้างรูทีนให้ฉัน</button>
+        <button class="btn ghost sm" onclick="clearBuilderInputs()">ล้างทั้งหมด</button>
+      </div>
+      <div id="statusB"></div>
+    </div>
+
+    <div class="card" id="resultB" style="display:none;">
+      <h2><span class="ic">📝</span> รูทีนที่แนะนำ</h2>
+      <p class="sub" id="resultBnote"></p>
+      <div id="stepsB"></div>
+      <div class="row" style="margin-top:14px;">
+        <button class="btn sage" onclick="saveBuilderToRoutine()">⬇️ บันทึกเข้า My Routine</button>
+      </div>
+    </div>
 
     <div class="card">
       <h2><span class="ic">📋</span> My Routine</h2>
@@ -517,42 +549,6 @@
       <div class="tags" id="blacklistTags"></div>
     </div>
 
-  </section>
-
-  <!-- ============ TAB 2: BUILDER ============ -->
-  <section class="view" id="view-builder">
-    <div class="card">
-      <h2><span class="ic">🧪</span> Routine Builder</h2>
-      <p class="sub">ใส่รูปครีม และ/หรือ พิมพ์รายการครีมเยอะ ๆ ก็ได้ — AI จะอ่านเองว่ามีโปรดักต์อะไรบ้าง แล้วจัดลำดับการทาให้</p>
-
-      <label class="fld">📸 รูปครีม (ใส่หรือไม่ใส่ก็ได้)</label>
-      <div class="drop" id="dropB">
-        <div class="big">📸</div>
-        <div class="t">แตะเพื่อเลือกรูปจาก Gallery</div>
-        <div class="s">รูปเดียวหลายขวดก็ได้ · รองรับหลายรูป · JPG / PNG / WEBP</div>
-        <input type="file" id="fileB" accept="image/*" multiple hidden />
-      </div>
-      <div class="thumbs" id="thumbsB"></div>
-
-      <label class="fld" style="margin-top:14px;">📝 รายการครีม (พิมพ์ชื่อมาเยอะ ๆ ได้เลย)</label>
-      <textarea id="listB" placeholder="พิมพ์มาแบบไหนก็ได้ AI อ่านเอง เช่น&#10;CeraVe Foaming Cleanser&#10;The Ordinary Niacinamide 10%&#10;ครีมกันแดด Anessa&#10;Retinol 0.3, La Roche-Posay moisturizer ..."></textarea>
-      <div class="hint">ใส่ได้ทั้งบรรทัดละชื่อ หรือคั่นด้วยจุลภาค — ไม่ต้องเป๊ะ AI จะระบุให้</div>
-
-      <div class="row" style="margin-top:14px;">
-        <button class="btn primary" id="runB" onclick="buildRoutine()">✨ สร้างรูทีนให้ฉัน</button>
-        <button class="btn ghost sm" onclick="clearBuilderInputs()">ล้างทั้งหมด</button>
-      </div>
-      <div id="statusB"></div>
-    </div>
-
-    <div class="card" id="resultB" style="display:none;">
-      <h2><span class="ic">📝</span> รูทีนที่แนะนำ</h2>
-      <p class="sub" id="resultBnote"></p>
-      <div id="stepsB"></div>
-      <div class="row" style="margin-top:14px;">
-        <button class="btn sage" onclick="saveBuilderToRoutine()">⬇️ บันทึกเข้า My Routine</button>
-      </div>
-    </div>
   </section>
 
   <!-- ============ TAB: CONFLICT CHECK ============ -->
