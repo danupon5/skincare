@@ -352,6 +352,17 @@
   .dup-verdict{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;font-weight:600;}
   .dup-keep{color:var(--ok);}
   .dup-remove{color:var(--danger);}
+  .dup-item.layer{border-color:var(--sage);background:rgba(158,200,168,.07);}
+  .dup-item.situational{border-color:#7c96e8;background:rgba(124,150,232,.06);}
+  .dup-badge{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap;}
+  .dup-badge.layer{background:rgba(158,200,168,.18);color:var(--sage);}
+  .dup-badge.situ{background:rgba(124,150,232,.18);color:#9db0ee;}
+  .dup-badge.redu{background:rgba(230,184,106,.18);color:var(--warn);}
+  .dup-uniq{font-size:12px;color:var(--ink-dim);margin:0 0 7px;line-height:1.5;}
+  .dup-uniq b{color:var(--ink);}
+  .dup-layer{border-top:1px solid var(--line);padding-top:7px;margin-top:3px;}
+  .dup-order{font-size:12.5px;font-weight:600;color:var(--ink);}
+  .dup-how{font-size:12px;color:var(--ink-dim);margin-top:3px;}
 
   .add-routine-bar{margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
   .add-routine-status{font-size:12.5px;color:var(--ink-dim);}
@@ -689,8 +700,8 @@
 
       <!-- Duplicates -->
       <div class="card" id="dupCard" style="display:none;">
-        <h2><span class="ic">⚠️</span> พบสินค้าซ้ำซ้อนในรูทีน</h2>
-        <p class="sub">สินค้าเหล่านี้ทำหน้าที่เดียวกันหรือคล้ายกัน ไม่จำเป็นต้องใช้ทั้งคู่</p>
+        <h2><span class="ic">🔀</span> สินค้าที่หน้าที่ทับซ้อนกัน</h2>
+        <p class="sub">สินค้าเหล่านี้มีหน้าที่/ส่วนผสมทับซ้อนกัน — บางคู่ตัดออกได้ บางคู่ใช้ได้ทั้งคู่ถ้าจัดลำดับการทาให้ถูก (เพราะแต่ละตัวอาจมีส่วนผสมอื่นที่ช่วยด้านอื่นเพิ่ม)</p>
         <div id="dupList"></div>
       </div>
 
@@ -2190,9 +2201,14 @@ ${ingDigest}
   "duplicates": [
     {
       "items": ["ชื่อสินค้า A", "ชื่อสินค้า B"],
-      "reason": "อธิบายว่าซ้ำซ้อนกันอย่างไร เช่น ทั้งคู่เป็น Vitamin C serum",
-      "keep": "ชื่อสินค้าที่แนะนำให้เก็บไว้",
-      "remove": "ชื่อสินค้าที่แนะนำให้ตัดออก"
+      "overlap": "หน้าที่/ส่วนผสมที่ทับซ้อนกัน เช่น ทั้งคู่มี Vitamin C เป็น antioxidant",
+      "verdict": "redundant" | "layer" | "situational",
+      "reason": "วิเคราะห์โดยดูส่วนผสมจริงและลำดับการทา ว่าทับซ้อนกันจริงจนไม่ต้องใช้ทั้งคู่ หรือแต่ละตัวมีส่วนผสม/หน้าที่อื่นที่อีกตัวไม่มี จึงใช้ร่วมกันได้ถ้าจัดลำดับถูก",
+      "unique": [ { "name": "ชื่อสินค้า", "benefit": "จุดเด่น/ส่วนผสมที่อีกตัวไม่มี (เหตุผลที่อาจเก็บไว้)" } ],
+      "order": ["ตัวที่ควรทาก่อน", "ตัวที่ทาหลัง"],
+      "how": "วิธีใช้ร่วม/จัดลำดับ เช่น ทาเนื้อบางก่อนเนื้อหนัก, เว้นระยะ, หรือสลับเช้า/เย็น",
+      "keep": "ชื่อที่แนะนำให้เก็บ (เฉพาะกรณี redundant)",
+      "remove": "ชื่อที่แนะนำให้ตัด (เฉพาะกรณี redundant)"
     }
   ],
   "gap_analysis": [
@@ -2215,10 +2231,14 @@ ${ingDigest}
   ]
 }
 
-- duplicates: ถ้าไม่มีของซ้ำให้ส่ง array ว่าง []
-- optimized_routine: รูทีนที่ตัดของซ้ำออกแล้ว จัดลำดับถูกต้อง (บาง→หนัก)
+- duplicates: ถ้าไม่มีคู่ที่หน้าที่ทับซ้อนกันให้ส่ง array ว่าง []
+- verdict ของ duplicates สำคัญมาก อย่าฟันธงว่า "ตัดทิ้ง" ทันทีเมื่อหน้าที่คล้ายกัน ให้พิจารณาก่อนว่า:
+  • "redundant" = ทับซ้อนกันเกือบทั้งหมด ใช้ตัวเดียวพอ (กรอก keep/remove)
+  • "layer" = หน้าที่หลักคล้ายกันแต่แต่ละตัวมีส่วนผสม/ประโยชน์อื่นที่อีกตัวไม่มี → ใช้ได้ทั้งคู่ถ้าทาตามลำดับ (กรอก order + how + unique ของแต่ละตัว ห้ามกรอก remove)
+  • "situational" = ใช้สลับตามสถานการณ์ เช่น สลับวัน/สลับเช้า-เย็น (กรอก how + unique)
+- optimized_routine: เก็บตัวที่ verdict=layer/situational ไว้ทั้งคู่และจัดลำดับให้ถูก ตัดออกเฉพาะตัวที่ verdict=redundant; เรียงเนื้อบาง→หนัก
 - gap_analysis: 3-5 รายการ, แต่ละ tier recommendations: 2-3 สินค้า, synergy_tips: 3-5 รายการ
-${ingDigest?'- เมื่อมีข้อมูลส่วนผสมจริงด้านบน ให้ duplicates/synergy_tips/gap_analysis อ้างอิงจาก active และส่วนผสมจริง (เช่น ชน active เดียวกัน, pH ขัดกัน) ไม่ใช่เดาจากชื่อสินค้า':''}`;
+${ingDigest?'- เมื่อมีข้อมูลส่วนผสมจริงด้านบน ให้ duplicates/synergy_tips/gap_analysis อ้างอิงจาก active และส่วนผสมจริง (เช่น ดูว่าแต่ละตัวมีส่วนผสมอื่นที่อีกตัวไม่มีไหม, ชน active เดียวกัน, pH ขัดกัน) ไม่ใช่เดาจากชื่อสินค้า':''}`;
 
   try{
     const out=await callGemini(prompt,[]);
@@ -2252,15 +2272,30 @@ function renderSuggestions(data){
     Array.isArray(d.items) && d.items.filter(x=>x&&String(x).trim()).length>1);
   if(dups.length){
     $('dupCard').style.display='';
-    $('dupList').innerHTML=dups.map(d=>`
-      <div class="dup-item">
-        <div class="dup-tags">${(d.items||[]).filter(x=>x&&String(x).trim()).map(x=>`<span class="dup-tag">${esc(x)}</span>`).join('<span class="dup-arrow">↔</span>')}</div>
+    $('dupList').innerHTML=dups.map(d=>{
+      const v=(d.verdict||(d.remove?'redundant':'')).toLowerCase();   // back-compat: old data → redundant
+      const items=(d.items||[]).filter(x=>x&&String(x).trim());
+      const arrow = v==='redundant' ? '↔' : '➜';
+      const badge = v==='layer' ? '<span class="dup-badge layer">ใช้ได้ทั้งคู่ · จัดลำดับ</span>'
+        : v==='situational' ? '<span class="dup-badge situ">ใช้สลับตามกรณี</span>'
+        : v==='redundant' ? '<span class="dup-badge redu">ซ้ำซ้อน · ตัดได้</span>' : '';
+      const uniq=(d.unique||[]).filter(u=>u&&(u.name||u.benefit));
+      const order=(d.order||[]).filter(Boolean);
+      return `<div class="dup-item ${v}">
+        <div class="dup-tags">${items.map(x=>`<span class="dup-tag">${esc(x)}</span>`).join(`<span class="dup-arrow">${arrow}</span>`)} ${badge}</div>
+        ${d.overlap?`<div class="dup-reason"><b>ทับซ้อน:</b> ${esc(d.overlap)}</div>`:''}
         ${d.reason?`<div class="dup-reason">${esc(d.reason)}</div>`:''}
-        ${(d.keep||d.remove)?`<div class="dup-verdict">
+        ${uniq.length?`<div class="dup-uniq">${uniq.map(u=>`<div>✨ <b>${esc(u.name||'')}:</b> ${esc(u.benefit||'')}</div>`).join('')}</div>`:''}
+        ${(v!=='redundant' && (order.length||d.how))?`<div class="dup-layer">
+          ${order.length?`<div class="dup-order">🧴 ลำดับการทา: ${order.map((o,i)=>`${i+1}. ${esc(o)}`).join('  →  ')}</div>`:''}
+          ${d.how?`<div class="dup-how">${esc(d.how)}</div>`:''}
+        </div>`:''}
+        ${(v==='redundant' && (d.keep||d.remove))?`<div class="dup-verdict">
           ${d.keep?`<span class="dup-keep">✅ เก็บไว้: ${esc(d.keep)}</span>`:''}
           ${d.remove?`<span class="dup-remove">🗑 ตัดออก: ${esc(d.remove)}</span>`:''}
         </div>`:''}
-      </div>`).join('');
+      </div>`;
+    }).join('');
   } else {
     $('dupCard').style.display='none';
   }
@@ -2272,8 +2307,10 @@ function renderSuggestions(data){
   let changes=opt.changes||'';
 
   if(!optAM.length && !optPM.length){
-    // build fallback from current routine, dropping items flagged for removal
-    const removeSet=new Set(dups.map(d=>(d.remove||'').toLowerCase().trim()).filter(Boolean));
+    // build fallback from current routine, dropping only truly-redundant items (keep layer/situational)
+    const removeSet=new Set(dups
+      .filter(d=>(d.verdict||(d.remove?'redundant':'')).toLowerCase()==='redundant')
+      .map(d=>(d.remove||'').toLowerCase().trim()).filter(Boolean));
     const drop=line=>!removeSet.size ? false :
       [...removeSet].some(r=>line.toLowerCase().includes(r));
     optAM=parseRoutineLines(get(LS.routineAM)).filter(l=>!drop(l));
