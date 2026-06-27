@@ -223,6 +223,9 @@
   .ing-targets{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;}
   .ing-target{font-size:9.5px;padding:1px 6px;border-radius:999px;background:rgba(158,200,168,.14);color:var(--sage);}
   .ing-summary{font-size:12px;color:var(--ink);background:rgba(158,200,168,.08);border:1px solid var(--line);border-radius:9px;padding:8px 11px;margin:0 0 10px;line-height:1.5;}
+  .hero-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px;}
+  .hero-lbl{font-size:11.5px;font-weight:700;color:var(--gold);}
+  .hero-chip{font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(227,193,129,.16);color:var(--gold);border:1px solid rgba(227,193,129,.35);}
   /* ── Scanner rich result ── */
   .sc-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0;}
   @media(max-width:520px){ .sc-cols{grid-template-columns:1fr;} }
@@ -1157,9 +1160,13 @@ async function fetchIngredientDetail(product){
   const prompt=
 `${EXPERT_PERSONA}
 
-งาน: ค้นหาและวิเคราะห์ "ส่วนผสมทั้งหมด (full INCI list)" ของผลิตภัณฑ์นี้ให้ละเอียดที่สุดเท่าที่เป็นไปได้
-ถ้าไม่มั่นใจรายการส่วนผสมจริง ให้ใช้ web search ช่วยหา INCI จากเว็บทางการ/ฐานข้อมูล (INCIDecoder, แบรนด์, Watsons ฯลฯ)
-ถ้ายังหาไม่ได้แน่ชัด ให้ประมาณการตามสูตรทั่วไปของผลิตภัณฑ์ประเภทนี้ และตั้ง inci_confidence = "estimated"
+งาน: ค้นหาและวิเคราะห์ "ส่วนผสมทั้งหมด (full INCI list)" ของผลิตภัณฑ์นี้ให้ละเอียดและครบถ้วนที่สุด
+ขั้นตอน:
+1) ระบุก่อนว่าผลิตภัณฑ์นี้ "ชูจุดขาย/สารเด่น (hero / signature)" อะไรที่แบรนด์โฆษณา เช่น โสมแดงเกาหลีของ Sulwhasoo, snail ของ COSRX, centella/cica, vitamin C, retinol ฯลฯ
+2) ใช้ web search หา INCI จริงจากเว็บทางการ/ฐานข้อมูล (INCIDecoder, แบรนด์, Watsons, Olive Young) แล้วลิสต์ "ครบทุกตัว" ตามจริง — ผลิตภัณฑ์ส่วนใหญ่มี 15-40 ส่วนผสม อย่าตัดเหลือแค่ไม่กี่ตัว
+3) สำคัญมาก: ส่วนผสมที่เป็น hero/จุดขายของแบรนด์ "ต้องปรากฏ" ในรายการ ingredients ด้วยชื่อ INCI ที่ถูกต้อง (เช่น Sulwhasoo ต้องมีสารสกัดโสม Panax Ginseng Root Extract) — ห้ามลืมหรือมองข้าม
+4) ถ้าหา INCI จริงครบไม่ได้ ให้ตั้ง inci_confidence = "estimated" แต่ "ยังต้องใส่สารเด่นที่แบรนด์ชูไว้เสมอ" และระบุใน notes ว่าส่วนไหนเป็นการประมาณ
+5) ตรวจทานก่อนตอบ: hero ทุกตัวอยู่ใน ingredients แล้วหรือยัง? ถ้ายัง ให้เพิ่มเข้าไป
 
 ผลิตภัณฑ์: ${product.name}${product.brand?` (แบรนด์: ${product.brand})`:''}
 
@@ -1171,6 +1178,7 @@ async function fetchIngredientDetail(product){
     "ph": "ค่า pH โดยประมาณ เช่น 3.2-3.8 หรือ '-' ถ้าไม่เกี่ยวข้อง",
     "texture": "เนื้อสัมผัส เช่น เจล, ครีม, น้ำ, โลชั่น, ออยล์ หรือ '-'",
     "summary_benefit": "ประโยชน์รวมของผลิตภัณฑ์นี้ 1-2 ประโยค (ใช้แล้วได้อะไร)",
+    "hero": [ { "name": "สารเด่น/จุดขายที่แบรนด์ชู เช่น สารสกัดโสมแดง", "inci": "ชื่อ INCI เช่น Panax Ginseng Root Extract", "why": "ทำไมเป็นจุดขาย/ช่วยอะไร" } ],
     "best_for": ["ปัญหา/เป้าหมายผิวที่เหมาะ เช่น สิว, รอยดำ, ริ้วรอย, ผิวแห้ง"],
     "key_actives": [
       { "name": "ชื่อ active", "type": "retinoid|aha|bha|vitc|niacinamide|peptide|benzoyl_peroxide|azelaic|vitamin_a|other", "percent": "% โดยประมาณ เช่น 10% หรือ '-'", "benefit": "ประโยชน์หลักของ active ตัวนี้สั้น ๆ" }
@@ -1200,7 +1208,8 @@ async function fetchIngredientDetail(product){
 }
 
 ข้อกำหนด:
-- ingredients: ลิสต์ให้ครบทุกตัวเท่าที่ทราบ เรียงตามลำดับความเข้มข้น (มาก→น้อย) ถ้าเป็นไปได้
+- hero: ระบุสารเด่นที่แบรนด์ใช้เป็นจุดขายของผลิตภัณฑ์ "ตัวนี้โดยเฉพาะ" (ถ้ามี) และทุกตัวใน hero ต้องมีอยู่ในรายการ ingredients ด้วย
+- ingredients: ลิสต์ให้ครบทุกตัวตามจริง (อย่าตัดเหลือไม่กี่ตัว) เรียงตามลำดับความเข้มข้น (มาก→น้อย) ถ้าเป็นไปได้
 - benefit: ต้องกรอกทุกตัว แม้เป็นสารช่วยสูตร (เช่น สารกันเสีย/อิมัลซิไฟเออร์) ก็ให้ระบุบทบาทสั้น ๆ — ข้อมูลนี้สำคัญมากเพราะจะถูกเก็บไว้ใช้ตอบตอนวิเคราะห์
 - evidence: ระดับหลักฐานทางวิทยาศาสตร์ของประโยชน์ที่อ้าง (strong=มีงานวิจัยหนุนชัด, moderate=พอมี, limited=น้อย/เป็นทฤษฎี)
 - comedogenic: ใส่เป็นตัวเลข 0-5
@@ -1214,7 +1223,7 @@ async function fetchIngredientDetail(product){
     name: product.name, brand: product.brand||'',
     fetchedAt: new Date().toISOString(),
     model: get(LS.model,'gemini-3.1-flash-lite'),
-    v: 2,   // schema: v2 adds per-ingredient benefit/targets/evidence + product summary_benefit/best_for
+    v: 3,   // v2: benefits/targets/evidence + summary/best_for · v3: hero/signature ingredients + completeness
     product: data.product||{},
     ingredients: Array.isArray(data.ingredients)?data.ingredients:[],
     notes: data.notes||''
@@ -1330,13 +1339,16 @@ function renderIngredientProfiles(list){
         <td>${[x.ph_sensitive?'pH':'',x.photosensitizing?'☀️':'',x.pregnancy_caution?'🤰':''].filter(Boolean).join(' ')||'-'}</td>
       </tr>`;
     }).join('');
-    const oldSchema = d.v!==2;
+    const oldSchema = (d.v||1) < 3;
+    const heroes=(pr.hero||[]).filter(h=>h&&(h.name||h.inci));
+    const heroHTML = heroes.length ? `<div class="hero-row"><span class="hero-lbl">⭐ จุดขายหลัก</span>${heroes.map(h=>`<span class="hero-chip" title="${esc(h.why||'')}">${esc(h.name||h.inci)}</span>`).join('')}</div>` : '';
     return `<details class="ing-card">
       <summary>${esc(d.name)}${d.brand?` <span class="pb" style="color:var(--ink-faint);font-weight:400;">${esc(d.brand)}</span>`:''}
         <span class="cf-cache ok" style="margin-left:auto;">${(d.ingredients||[]).length} ส่วนผสม</span>
       </summary>
       <div class="ing-body">
         ${pr.summary_benefit?`<div class="ing-summary">💡 ${esc(pr.summary_benefit)}</div>`:''}
+        ${heroHTML}
         <div class="ing-meta-row">
           <span class="ing-chip">ประเภท: ${esc(pr.type||'-')}</span>
           ${pr.texture?`<span class="ing-chip">เนื้อ: ${esc(pr.texture)}</span>`:''}
@@ -1352,7 +1364,7 @@ function renderIngredientProfiles(list){
           <tbody>${rows||'<tr><td colspan="6" style="color:var(--ink-faint);">ไม่มีข้อมูลส่วนผสม</td></tr>'}</tbody>
         </table>
         ${d.notes?`<div class="cf-row" style="margin-top:10px;">📝 ${esc(d.notes)}</div>`:''}
-        ${oldSchema?`<div class="hint" style="margin-top:8px;color:var(--warn);">ℹ️ ข้อมูลชุดเดิม (ยังไม่มีประโยชน์รายส่วนผสม) — กด ↻ ที่การ์ดด้านบนเพื่อดึงใหม่แบบละเอียด</div>`:''}
+        ${oldSchema?`<div class="hint" style="margin-top:8px;color:var(--warn);">ℹ️ ข้อมูลชุดเดิม — กด ↻ ที่การ์ดด้านบนเพื่อดึงใหม่แบบละเอียดกว่า (เก็บสารเด่น/จุดขายของแบรนด์ครบขึ้น)</div>`:''}
         <div class="hint" style="margin-top:8px;">อัปเดตเมื่อ ${esc(fmtFetched(d.fetchedAt))}</div>
       </div>
     </details>`;
@@ -1439,8 +1451,9 @@ function cfProductContext(p){
     return `${x.name}${x.percent&&x.percent!=='-'?` ${x.percent}`:''}${tags}${x.benefit?` — ${x.benefit}`:''}`;
   }).join('; ');
   const acts=(pr.key_actives||[]).map(a=>`${a.name}(${a.type}${a.percent&&a.percent!=='-'?' '+a.percent:''})${a.benefit?': '+a.benefit:''}`).join(', ');
+  const hero=(pr.hero||[]).map(h=>h.name||h.inci).filter(Boolean).join(', ');
   const best=(pr.best_for&&pr.best_for.length)?` | เหมาะกับ ${pr.best_for.join(', ')}`:'';
-  return `- ${p.name}${p.brand?' ('+p.brand+')':''} | ใช้ช่วง ${whenLabel(p.when)} | ประเภท ${pr.type||'-'} | pH ${pr.ph||'-'}${best}${pr.summary_benefit?`\n  ประโยชน์รวม: ${pr.summary_benefit}`:''}\n  actives: ${acts||'-'}\n  ส่วนผสม (พร้อมประโยชน์): ${ings||'-'}`;
+  return `- ${p.name}${p.brand?' ('+p.brand+')':''} | ใช้ช่วง ${whenLabel(p.when)} | ประเภท ${pr.type||'-'} | pH ${pr.ph||'-'}${best}${hero?`\n  จุดขายหลัก: ${hero}`:''}${pr.summary_benefit?`\n  ประโยชน์รวม: ${pr.summary_benefit}`:''}\n  actives: ${acts||'-'}\n  ส่วนผสม (พร้อมประโยชน์): ${ings||'-'}`;
 }
 
 // In-use products that already have cached INCI detail — reused by AI Suggestions too.
