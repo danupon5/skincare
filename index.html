@@ -1138,6 +1138,9 @@ function setIngredientFor(key,detail){ const c=getIngredientCache(); c[key]=deta
 function clearIngredientFor(key){ const c=getIngredientCache(); delete c[key]; setIngredientCache(c); }
 
 function cfProducts(){ return getProducts().filter(p=>p.use); }
+// Safe key for inline onclick/onchange single-quoted args. encodeURIComponent does NOT escape
+// the apostrophe, so names like "Paula's Choice" would break the JS string — escape it too.
+function attrKey(s){ return encodeURIComponent(s).replace(/'/g,'%27'); }
 function fmtFetched(iso){
   if(!iso) return '';
   try{ const d=new Date(iso); return d.toLocaleDateString('th-TH',{day:'numeric',month:'short'})+' '+d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}); }
@@ -1162,7 +1165,7 @@ function renderConflictPanel(){
       <span class="badge ${whenClass(p.when)}">${whenLabel(p.when)}</span>
       <div class="pn">${esc(p.name)}${p.brand?` <span class="pb">${esc(p.brand)}</span>`:''}</div>
       ${badge}
-      <button class="cf-refresh" title="ดึงข้อมูลส่วนผสมใหม่" onclick="refreshOneIngredient('${encodeURIComponent(prodKey(p.name,p.brand))}')">↻</button>
+      <button class="cf-refresh" title="ดึงข้อมูลส่วนผสมใหม่" onclick="refreshOneIngredient('${attrKey(prodKey(p.name,p.brand))}')">↻</button>
     </div>`;
   }).join('');
   renderCfChatPick();
@@ -1550,7 +1553,7 @@ function renderCfChatPick(){
   c.innerHTML=list.map(p=>{
     const k=prodKey(p.name,p.brand), det=getIngredientFor(k);
     return `<label class="cf-pick">
-      <input type="checkbox" ${cfIsPicked(k)?'checked':''} onchange="cfChatToggle('${encodeURIComponent(k)}',this.checked)">
+      <input type="checkbox" ${cfIsPicked(k)?'checked':''} onchange="cfChatToggle('${attrKey(k)}',this.checked)">
       <span class="badge ${whenClass(p.when)}">${whenLabel(p.when)}</span>
       <span class="pn">${esc(p.name)}${p.brand?` <span class="pb">${esc(p.brand)}</span>`:''}</span>
       ${det?'<span class="cf-cache ok">✓ มีข้อมูล</span>':'<span class="cf-cache no">⟳ ยังไม่มี</span>'}
