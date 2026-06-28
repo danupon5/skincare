@@ -1092,7 +1092,7 @@ ${list}
 }`;
 
   try{
-    const out=await callGemini(prompt,[]);
+    const out=await callGemini(prompt,[],{search:true});
     const data=parseJSON(out);
     const am=(data.am||[]).filter(Boolean), pm=(data.pm||[]).filter(Boolean);
     if(!am.length && !pm.length) throw new Error('จัดรูทีนไม่สำเร็จ');
@@ -1303,7 +1303,7 @@ Requirements:
 - actives_tag: values like "retinoid","aha","bha","vitc","niacinamide" only for important actives, else null
 - prioritize accuracy of actives and common irritants/allergens${skin?`\n- user's skin context (for note): ${skin}`:''}`)}`;
 
-  const out=await callGemini(prompt,[]);
+  const out=await callGemini(prompt,[],{search:true});
   const data=parseJSON(out);
   const detail={
     prodKey: prodKey(product.name,product.brand),
@@ -1714,7 +1714,9 @@ function dataUrlToInline(dataUrl){
   return { inline_data:{ mime_type:m[1], data:m[2] } };
 }
 
-async function callGemini(promptText, imageBufKeys){
+// opts.search=true → enable Google Search grounding so the model looks up real INCI/products
+// instead of guessing from memory. Falls back to a non-grounded call if the model rejects the tool.
+async function callGemini(promptText, imageBufKeys, opts={}){
   const model=get(LS.model,'gemini-3.1-flash-lite');
 
   const parts=[{ text: promptText }];
@@ -1722,16 +1724,21 @@ async function callGemini(promptText, imageBufKeys){
     imgs[k].forEach(d=>{ const p=dataUrlToInline(d); if(p) parts.push(p); });
   });
 
-  const body={ model, contents:[{ role:'user', parts }] };
+  const baseBody={ model, contents:[{ role:'user', parts }] };
 
-  const url=`/api/gemini`;
+  async function send(withSearch){
+    const body = withSearch ? { ...baseBody, tools:[{ google_search:{} }] } : baseBody;
+    let res;
+    try{ res=await fetch('/api/gemini',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }); }
+    catch(e){ throw new Error('เชื่อมต่อเครือข่ายไม่สำเร็จ ลองใหม่อีกครั้ง'); }
+    let json;
+    try{ json=await res.json(); }catch(e){ throw new Error('อ่านผลลัพธ์จากเซิร์ฟเวอร์ไม่สำเร็จ'); }
+    return { res, json };
+  }
 
-  let res;
-  try{ res=await fetch(url,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }); }
-  catch(e){ throw new Error('เชื่อมต่อเครือข่ายไม่สำเร็จ ลองใหม่อีกครั้ง'); }
-
-  let json;
-  try{ json=await res.json(); }catch(e){ throw new Error('อ่านผลลัพธ์จากเซิร์ฟเวอร์ไม่สำเร็จ'); }
+  const wantSearch=!!opts.search;
+  let { res, json }=await send(wantSearch);
+  if(!res.ok && wantSearch){ ({ res, json }=await send(false)); }   // grounding unsupported → retry plain
 
   if(!res.ok){
     const msg=(json&&json.error&&json.error.message)||('HTTP '+res.status);
@@ -1887,7 +1894,7 @@ ${sources}
 }`;
 
   try{
-    const out=await callGemini(prompt, hasImgs?['B']:[]);
+    const out=await callGemini(prompt, hasImgs?['B']:[], {search:true});
     const data=parseJSON(out);
     if(!data.steps||!Array.isArray(data.steps)||!data.steps.length) throw new Error('ไม่พบขั้นตอนในผลลัพธ์');
     lastBuilderSteps=data.steps;
@@ -1992,7 +1999,7 @@ ${ctx}
   "reason":"เหตุผลเปรียบเทียบโดยอิงผิว/เป้าหมาย/รูทีนของผู้ใช้ 2-4 ประโยค",
   "blacklist_hits":["ส่วนผสมต้องห้ามที่เจอ ถ้ามี"]
 }`;
-      const out=await callGemini(prompt, imgs.C1.length||imgs.C2.length?['C1','C2']:[]);
+      const out=await callGemini(prompt, imgs.C1.length||imgs.C2.length?['C1','C2']:[], {search:true});
       data=parseJSON(out);
       renderCompare(data);
       saveHistory({ kind:'compare', title:`${(data.a&&data.a.name)||'A'} vs ${(data.b&&data.b.name)||'B'}`, thumb:imgs.C1[0]||imgs.C2[0]||'', data });
@@ -2075,7 +2082,7 @@ Reply with JSON ONLY:
 - hero: the brand's signature ingredients for this product; every one must also appear in ingredients
 - ingredients: list key ingredients as completely as known, with per-item benefit
 - alternatives: 1-3 that suit the user's skin/goals`)}`;
-      const out=await callGemini(prompt, imgs.S.length?['S']:[]);
+      const out=await callGemini(prompt, imgs.S.length?['S']:[], {search:true});
       data=parseJSON(out);
       renderSingle(data);
       saveHistory({ kind:'single', title:`${data.brand?data.brand+' ':''}${data.name||'สินค้า'}`, thumb:imgs.S[0]||'', data });
@@ -2576,7 +2583,7 @@ Analyze everything, then reply with JSON ONLY:
 ${ingDigest?'- when real ingredient data is provided above, base duplicates/synergy_tips/gap_analysis on real actives and ingredients (e.g. whether each has ingredients the other lacks, same-active clash, pH conflict), not guesses from product names':''}`)}`;
 
   try{
-    const out=await callGemini(prompt,[]);
+    const out=await callGemini(prompt,[],{search:true});
     const data=parseJSON(out);
     renderSuggestions(data);
     initSugChat(data, { skin, goals, routineAM, routinePM });
@@ -2773,7 +2780,7 @@ async function refreshRecommendations(){
 }`;
 
   try{
-    const out=await callGemini(prompt,[]);
+    const out=await callGemini(prompt,[],{search:true});
     const data=parseJSON(out);
     // accept either {budget,mid,premium} or {recommendations:{...}}
     const rec=data.recommendations||data;

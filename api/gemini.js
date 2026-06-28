@@ -8,18 +8,22 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: { message: 'Server missing GEMINI_API_KEY' } });
   }
 
-  const { model, contents } = req.body || {};
+  const { model, contents, tools, generationConfig } = req.body || {};
   if (!model || !contents) {
     return res.status(400).json({ error: { message: 'Missing model or contents' } });
   }
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${apiKey}`;
 
+  const payload = { contents };
+  if (tools) payload.tools = tools;                       // e.g. [{ google_search: {} }] for grounding
+  if (generationConfig) payload.generationConfig = generationConfig;
+
   try {
     const r = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents })
+      body: JSON.stringify(payload)
     });
     const data = await r.json();
     return res.status(r.status).json(data);
